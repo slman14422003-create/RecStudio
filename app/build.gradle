@@ -14,6 +14,9 @@ def signStorePass = System.getenv('SIGNING_STORE_PASSWORD') ?: keystoreProps.get
 def signAlias = System.getenv('SIGNING_KEY_ALIAS') ?: keystoreProps.getProperty('keyAlias')
 def signKeyPass = System.getenv('SIGNING_KEY_PASSWORD') ?: keystoreProps.getProperty('keyPassword')
 def hasSigning = signStore && signStorePass && signAlias && signKeyPass
+if (System.getenv('REQUIRE_RELEASE_SIGNING') == 'true' && !hasSigning) {
+    throw new GradleException('Release signing is required but the signing variables are missing')
+}
 
 android {
     namespace = 'com.rec.app'
