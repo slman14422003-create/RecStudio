@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">مسجل سيمو</string>
+    <string name="default_title">تسجيل</string>
+
+    <string name="action_back">رجوع</string>
+    <string name="action_search">بحث</string>
+    <string name="action_settings">الإعدادات</string>
+    <string name="action_share">مشاركة</string>
+    <string name="action_record">تسجيل</string>
+    <string name="action_stop">إيقاف</string>
+    <string name="action_pause">إيقاف مؤقت</string>
+    <string name="action_resume">استئناف</string>
+    <string name="action_marker">علامة</string>
+    <string name="action_play">تشغيل</string>
+    <string name="action_rewind">رجوع للخلف</string>
+    <string name="action_forward">تقديم</string>
+    <string name="add_marker">إضافة علامة</string>
+
+    <string name="filter_all">الكل</string>
+    <string name="filter_starred">المفضلة</string>
+    <string name="filter_flagged">المعلّمة</string>
+    <string name="search_hint">ابحث في التسجيلات</string>
+    <string name="empty_library">لا توجد تسجيلات بعد.\nاضغط الزر الأحمر للبدء.</string>
+    <string name="empty_filtered">لا توجد تسجيلات مطابقة</string>
+    <string name="summary_fmt">%1$d تسجيل · %2$s</string>
+
+    <string name="banner_recording">جارٍ التسجيل</string>
+    <string name="banner_paused">متوقف مؤقتًا</string>
+    <string name="state_recording">تسجيل</string>
+    <string name="state_paused">متوقف مؤقتًا</string>
+    <string name="too_short">التسجيل قصير جدًا ولم يُحفظ</string>
+    <string name="start_failed">تعذّر بدء التسجيل</string>
+    <string name="play_failed">تعذّر تشغيل هذا التسجيل</string>
+    <string name="quality_locked">لا يمكن تغيير الجودة أثناء التسجيل</string>
+
+    <string name="rename">إعادة تسمية</string>
+    <string name="save">حفظ</string>
+    <string name="cancel">إلغاء</string>
+    <string name="delete">حذف</string>
+    <string name="star">إضافة إلى المفضلة</string>
+    <string name="unstar">إزالة من المفضلة</string>
+    <string name="delete_title">حذف التسجيل؟</string>
+    <string name="delete_message">سيتم حذف هذا التسجيل نهائيًا.</string>
+    <string name="discard">تجاهل</string>
+    <string name="discard_title">تجاهل التسجيل؟</string>
+    <string name="discard_message">سيتم حذف التسجيل الحالي ولا يمكن استرجاعه.</string>
+
+    <string name="markers_title">العلامات</string>
+    <string name="markers_short">%1$d علامة</string>
+    <string name="marker_n">علامة %1$d</string>
+
+    <string name="sort_title">ترتيب حسب</string>
+    <string name="quality_title">جودة التسجيل</string>
+
+    <string name="perm_title">مطلوب إذن الميكروفون</string>
+    <string name="perm_message">اسمح بالوصول إلى الميكروفون من إعدادات التطبيق لتتمكن من التسجيل.</string>
+    <string name="open_settings">الإعدادات</string>
+
+    <string name="notif_channel">التسجيل</string>
+    <string name="notif_recording">جارٍ تسجيل الصوت</string>
+    <string name="notif_paused">التسجيل متوقف مؤقتًا</string>
+    <string name="notif_tap">اضغط للعودة إلى المسجّل</string>
+
+    <string name="settings_title">الإعدادات</string>
+    <string name="group_language">اللغة</string>
+    <string name="group_recording">التسجيل</string>
+    <string name="group_playback">التشغيل</string>
+    <string name="group_library">المكتبة</string>
+    <string name="settings_language">لغة التطبيق</string>
+    <string name="lang_system">لغة النظام</string>
+    <string name="lang_arabic">العربية</string>
+    <string name="lang_english">English</string>
+    <string name="settings_quality">الجودة</string>
+    <string name="settings_keep_awake">إبقاء الشاشة مضاءة أثناء التسجيل</string>
+    <string name="settings_haptic">اهتزاز عند الضغط</string>
+    <string name="settings_skip">مدة التقديم والرجوع</string>
+    <string name="settings_sort">الترتيب الافتراضي</string>
+    <string name="settings_storage">المساحة المستخدمة</string>
+    <string name="seconds_fmt">%1$d ث</string>
+
+    <string-array name="sort_options">
+        <item>الأحدث</item>
+        <item>الأقدم</item>
+        <item>الأطول</item>
+        <item>الاسم</item>
+    </string-array>
+    <string-array name="quality_options">
+        <item>عادية · 64 كيلوبت</item>
+        <item>عالية · 128 كيلوبت</item>
+        <item>قصوى · 256 كيلوبت</item>
+    </string-array>
+    <string-array name="quality_short">
+        <item>عادية</item>
+        <item>عالية</item>
+        <item>قصوى</item>
+    </string-array>
+</resources>

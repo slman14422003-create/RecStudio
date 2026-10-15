@@ -1,0 +1,75 @@
+import java.util.Properties
+
+plugins {
+    id 'com.android.application'
+}
+
+def keystoreProps = new Properties()
+def keystoreFile = rootProject.file('keystore.properties')
+if (keystoreFile.exists()) {
+    keystoreFile.withInputStream { keystoreProps.load(it) }
+}
+def signStore = System.getenv('SIGNING_STORE_FILE') ?: keystoreProps.getProperty('storeFile')
+def signStorePass = System.getenv('SIGNING_STORE_PASSWORD') ?: keystoreProps.getProperty('storePassword')
+def signAlias = System.getenv('SIGNING_KEY_ALIAS') ?: keystoreProps.getProperty('keyAlias')
+def signKeyPass = System.getenv('SIGNING_KEY_PASSWORD') ?: keystoreProps.getProperty('keyPassword')
+def hasSigning = signStore && signStorePass && signAlias && signKeyPass
+
+android {
+    namespace = 'com.rec.app'
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "app.rec.studio"
+        minSdk = 24
+        targetSdk = 36
+        versionCode = 1
+        versionName = "1.0"
+        resourceConfigurations += ["ar", "en"]
+    }
+
+    signingConfigs {
+        release {
+            if (hasSigning) {
+                storeFile = file(signStore)
+                storePassword = signStorePass
+                keyAlias = signAlias
+                keyPassword = signKeyPass
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            debuggable = false
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig = hasSigning ? signingConfigs.release : signingConfigs.debug
+        }
+        debug {
+            applicationIdSuffix = ".debug"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'androidx.activity:activity:1.9.3'
+    implementation 'androidx.core:core-splashscreen:1.0.1'
+    implementation 'androidx.recyclerview:recyclerview:1.4.0'
+    implementation 'androidx.core:core:1.13.1'
+}
