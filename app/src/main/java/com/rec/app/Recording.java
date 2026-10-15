@@ -14,6 +14,9 @@ public final class Recording {
     public long durationMs;
     public boolean favorite;
     public int quality;
+    public int mode;
+    public int label;
+    public long deletedAt;
     public final ArrayList<Long> markers = new ArrayList<>();
     public int[] peaks = new int[0];
 
@@ -40,5 +43,14 @@ public final class Recording {
     public void addMarker(long ms) {
         markers.add(Math.max(0, ms));
         Collections.sort(markers);
+    }
+
+    public static int[] slicePeaks(int[] src, float from, float to) {
+        if (src.length == 0) return new int[0];
+        int a = Math.max(0, Math.min(src.length - 1, Math.round(from * src.length)));
+        int b = Math.max(a + 1, Math.min(src.length, Math.round(to * src.length)));
+        int[] out = new int[b - a];
+        System.arraycopy(src, a, out, 0, out.length);
+        return out;
     }
 }

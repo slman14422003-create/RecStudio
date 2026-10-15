@@ -23,6 +23,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -49,7 +50,8 @@ public final class MainActivity extends AppCompatActivity {
 
     private static final int FILTER_ALL = 0;
     private static final int FILTER_STARRED = 1;
-    private static final int FILTER_FLAGGED = 2;
+    private static final int FILTER_MARKED = 2;
+    private static final int FILTER_LABEL_BASE = 3;
 
     private Store store;
     private List<Recording> all = new ArrayList<>();
@@ -62,10 +64,12 @@ public final class MainActivity extends AppCompatActivity {
     private TextView emptyText;
     private TextView summary;
     private TextView banner;
-    private TextView tagSort;
     private TextView tagQuality;
+    private TextView tagFree;
     private EditText search;
-    private final TextView[] chips = new TextView[3];
+    private HorizontalScrollView chipScroll;
+    private TextView[] chips;
+    private TextView[] segItems;
     private View recInner;
     private boolean lastActive;
 
@@ -84,6 +88,7 @@ public final class MainActivity extends AppCompatActivity {
         SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
         store = new Store(this);
+        Repo.purge(this);
 
         permLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
             if (hasAudioPermission()) {
@@ -171,7 +176,7 @@ public final class MainActivity extends AppCompatActivity {
         rv.setLayoutManager(new LinearLayoutManager(this));
         rv.setClipToPadding(false);
         rv.setPadding(dp(16), dp(2), dp(16), dp(16));
-        adapter = new RecordingAdapter(this, new RecordingAdapter.Listener() {
+        adapter = new RecordingAdapter(this, false, new RecordingAdapter.Listener() {
             @Override public void onOpen(Recording r) { openPlayer(r.id); }
             @Override public void onMenu(Recording r) { showMenu(r); }
         });
@@ -202,6 +207,7 @@ public final class MainActivity extends AppCompatActivity {
         root.addView(buildRecordPanel());
         setContentView(root);
         refreshChips();
+        refreshSegment();
     }
 
     private View buildTopBar() {
@@ -214,6 +220,12 @@ public final class MainActivity extends AppCompatActivity {
         btnSearch.setOnClickListener(v -> toggleSearch());
         bar.addView(btnSearch);
 
+        ImageButton btnTrash = Ui.iconButton(this, R.drawable.ic_trash, R.string.trash_title);
+        btnTrash.setOnClickListener(v -> startActivity(new Intent(this, TrashActivity.class)));
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(dp(40), dp(40));
+        tlp.setMarginStart(dp(8));
+        bar.addView(btnTrash, tlp);
+
         TextView title = new TextView(this);
         title.setText(R.string.app_name);
         title.setTextSize(18);
@@ -224,17 +236,40 @@ public final class MainActivity extends AppCompatActivity {
         title.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         bar.addView(title);
 
+        ImageButton btnSort = Ui.iconButton(this, R.drawable.ic_sort, R.string.sort_title);
+        btnSort.setOnClickListener(v -> chooseSort());
+        bar.addView(btnSort);
+
         ImageButton btnSettings = Ui.iconButton(this, R.drawable.ic_settings, R.string.action_settings);
         btnSettings.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
-        bar.addView(btnSettings);
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(dp(40), dp(40));
+        slp.setMarginStart(dp(8));
+        bar.addView(btnSettings, slp);
         return bar;
     }
 
     private View buildFilters() {
+        chipScroll = new HorizontalScrollView(this);
+        chipScroll.setHorizontalScrollBarEnabled(false);
+        chipScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        chipScroll.setFillViewport(true);
+        LinearLayout.LayoutParams sLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(36));
+        sLp.topMargin = dp(10);
+        chipScroll.setLayoutParams(sLp);
+
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER);
-        String[] labels = {getString(R.string.filter_all), getString(R.string.filter_starred), getString(R.string.filter_flagged)};
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(13), 0, dp(13), 0);
+
+        String[] names = Labels.names(this);
+        String[] labels = new String[FILTER_LABEL_BASE + names.length];
+        labels[FILTER_ALL] = getString(R.string.filter_all);
+        labels[FILTER_STARRED] = getString(R.string.filter_starred);
+        labels[FILTER_MARKED] = getString(R.string.filter_flagged);
+        System.arraycopy(names, 0, labels, FILTER_LABEL_BASE, names.length);
+
+        chips = new TextView[labels.length];
         for (int i = 0; i < labels.length; i++) {
             final int f = i;
             TextView chip = Ui.chip(this, labels[i]);
@@ -248,27 +283,51 @@ public final class MainActivity extends AppCompatActivity {
             row.addView(chip, clp);
             chips[i] = chip;
         }
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(36));
-        lp.topMargin = dp(10);
-        row.setLayoutParams(lp);
-        return row;
+        chipScroll.addView(row, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        return chipScroll;
     }
 
     private View buildRecordPanel() {
         LinearLayout panel = new LinearLayout(this);
-        panel.setOrientation(LinearLayout.HORIZONTAL);
-        panel.setGravity(Gravity.CENTER_VERTICAL);
+        panel.setOrientation(LinearLayout.VERTICAL);
         panel.setBackgroundResource(R.drawable.bg_keypad_panel);
         panel.setPadding(dp(18), dp(14), dp(18), dp(14));
         LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         plp.setMargins(dp(12), dp(4), dp(12), dp(12));
         panel.setLayoutParams(plp);
 
+        LinearLayout seg = new LinearLayout(this);
+        seg.setOrientation(LinearLayout.HORIZONTAL);
+        seg.setBackground(Ui.round(getColor(R.color.field), dp(12), 0, 0));
+        seg.setPadding(dp(3), dp(3), dp(3), dp(3));
+        String[] modes = getResources().getStringArray(R.array.mode_options);
+        segItems = new TextView[modes.length];
+        for (int i = 0; i < modes.length; i++) {
+            final int m = i;
+            TextView t = new TextView(this);
+            t.setText(modes[i]);
+            t.setTextSize(13);
+            t.setGravity(Gravity.CENTER);
+            t.setSingleLine(true);
+            t.setClickable(true);
+            t.setFocusable(true);
+            t.setOnClickListener(v -> selectMode(m));
+            seg.addView(t, new LinearLayout.LayoutParams(0, dp(34), 1f));
+            segItems[i] = t;
+        }
+        panel.addView(seg, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rlp.topMargin = dp(14);
+
         FrameLayout left = new FrameLayout(this);
-        tagSort = Ui.tag(this, "");
-        tagSort.setOnClickListener(v -> chooseSort());
-        left.addView(tagSort, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.START | Gravity.CENTER_VERTICAL));
-        panel.addView(left, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        tagQuality = Ui.tag(this, "");
+        tagQuality.setOnClickListener(v -> chooseQuality());
+        left.addView(tagQuality, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.START | Gravity.CENTER_VERTICAL));
+        row.addView(left, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         FrameLayout button = new FrameLayout(this);
         button.setBackgroundResource(R.drawable.bg_rec_ring);
@@ -283,20 +342,23 @@ public final class MainActivity extends AppCompatActivity {
             Ui.haptic(v, store);
             onRecordTapped();
         });
-        panel.addView(button, new LinearLayout.LayoutParams(dp(84), dp(84)));
+        row.addView(button, new LinearLayout.LayoutParams(dp(84), dp(84)));
 
         FrameLayout right = new FrameLayout(this);
-        tagQuality = Ui.tag(this, "");
-        tagQuality.setOnClickListener(v -> chooseQuality());
-        right.addView(tagQuality, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.CENTER_VERTICAL));
-        panel.addView(right, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        tagFree = Ui.tag(this, "");
+        tagFree.setClickable(false);
+        tagFree.setFocusable(false);
+        right.addView(tagFree, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.CENTER_VERTICAL));
+        row.addView(right, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        panel.addView(row, rlp);
         return panel;
     }
 
     private void attachSwipe() {
         final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        paint.setColor(getColor(R.color.bad));
         final Drawable trash = ContextCompat.getDrawable(this, R.drawable.ic_trash);
+        final Drawable star = ContextCompat.getDrawable(this, R.drawable.ic_star_fill);
         final float radius = dp(18);
         ItemTouchHelper helper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
             @Override
@@ -309,16 +371,15 @@ public final class MainActivity extends AppCompatActivity {
                 final int pos = vh.getBindingAdapterPosition();
                 if (pos == RecyclerView.NO_POSITION) return;
                 final Recording r = adapter.get(pos);
-                new AlertDialog.Builder(MainActivity.this)
-                        .setTitle(R.string.delete_title)
-                        .setMessage(R.string.delete_message)
-                        .setPositiveButton(R.string.delete, (d, w) -> {
-                            Repo.delete(MainActivity.this, r.id);
-                            reload();
-                        })
-                        .setNegativeButton(R.string.cancel, (d, w) -> adapter.notifyItemChanged(pos))
-                        .setOnCancelListener(d -> adapter.notifyItemChanged(pos))
-                        .show();
+                if (direction == ItemTouchHelper.RIGHT) {
+                    r.favorite = !r.favorite;
+                    Repo.save(MainActivity.this, r);
+                    applyFilter();
+                } else {
+                    Repo.trash(MainActivity.this, r);
+                    Toast.makeText(MainActivity.this, R.string.moved_trash, Toast.LENGTH_SHORT).show();
+                    reload();
+                }
             }
 
             @Override
@@ -326,23 +387,19 @@ public final class MainActivity extends AppCompatActivity {
                                     float dX, float dY, int state, boolean active) {
                 View v = vh.itemView;
                 if (dX != 0) {
-                    float left;
-                    float right;
-                    if (dX > 0) {
-                        left = v.getLeft();
-                        right = v.getLeft() + dX;
-                    } else {
-                        left = v.getRight() + dX;
-                        right = v.getRight();
-                    }
+                    boolean toRight = dX > 0;
+                    paint.setColor(getColor(toRight ? R.color.warn : R.color.bad));
+                    float left = toRight ? v.getLeft() : v.getRight() + dX;
+                    float right = toRight ? v.getLeft() + dX : v.getRight();
                     canvas.drawRoundRect(left, v.getTop(), right, v.getBottom(), radius, radius, paint);
-                    if (trash != null) {
+                    Drawable icon = toRight ? star : trash;
+                    if (icon != null) {
                         int size = dp(24);
                         int cy = (v.getTop() + v.getBottom()) / 2;
-                        int x = dX > 0 ? v.getLeft() + dp(22) : v.getRight() - dp(22) - size;
+                        int x = toRight ? v.getLeft() + dp(22) : v.getRight() - dp(22) - size;
                         if (Math.abs(dX) > dp(22) + size) {
-                            trash.setBounds(x, cy - size / 2, x + size, cy + size / 2);
-                            trash.draw(canvas);
+                            icon.setBounds(x, cy - size / 2, x + size, cy + size / 2);
+                            icon.draw(canvas);
                         }
                     }
                 }
@@ -366,14 +423,45 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void refreshChips() {
-        for (int i = 0; i < chips.length; i++) Ui.setChipState(chips[i], filter == i);
+        for (int i = 0; i < chips.length; i++) {
+            Ui.setChipState(chips[i], filter == i);
+        }
+    }
+
+    private void refreshSegment() {
+        int mode = store.getMode();
+        for (int i = 0; i < segItems.length; i++) {
+            boolean sel = i == mode;
+            segItems[i].setBackground(sel ? Ui.round(getColor(R.color.seg_selected), dp(10), 0, 0) : null);
+            segItems[i].setTextColor(sel ? c(R.attr.cTextPrimary) : c(R.attr.cTextSecondary));
+            segItems[i].setTypeface(Typeface.create(sel ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL));
+        }
+    }
+
+    private void selectMode(int mode) {
+        if (RecorderService.isActive()) {
+            Toast.makeText(this, R.string.mode_locked, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        store.setMode(mode);
+        refreshSegment();
+        refreshLabels();
     }
 
     private void refreshLabels() {
-        String[] sorts = getResources().getStringArray(R.array.sort_options);
         String[] quals = getResources().getStringArray(R.array.quality_short);
-        tagSort.setText(sorts[Math.max(0, Math.min(sorts.length - 1, store.getSort()))]);
-        tagQuality.setText(quals[Math.max(0, Math.min(quals.length - 1, store.getQuality()))]);
+        if (store.getMode() == Store.M_SPEECH) {
+            tagQuality.setText(R.string.quality_voice);
+        } else {
+            tagQuality.setText(quals[Math.max(0, Math.min(quals.length - 1, store.getQuality()))]);
+        }
+        refreshSegment();
+
+        int bits = Store.effectiveBitRate(store.getQuality(), store.getMode());
+        long seconds = Repo.freeBytes(this) / Math.max(1, bits / 8);
+        long hours = seconds / 3600;
+        if (hours >= 48) tagFree.setText(getString(R.string.free_days_fmt, hours / 24));
+        else tagFree.setText(getString(R.string.free_hours_fmt, hours));
     }
 
     private void reload() {
@@ -386,7 +474,8 @@ public final class MainActivity extends AppCompatActivity {
         long total = 0;
         for (Recording r : all) {
             if (filter == FILTER_STARRED && !r.favorite) continue;
-            if (filter == FILTER_FLAGGED && r.markers.isEmpty()) continue;
+            if (filter == FILTER_MARKED && r.markers.isEmpty()) continue;
+            if (filter >= FILTER_LABEL_BASE && r.label != filter - FILTER_LABEL_BASE + 1) continue;
             if (!query.isEmpty() && !r.title.toLowerCase(Locale.getDefault()).contains(query)) continue;
             out.add(r);
             total += r.durationMs;
@@ -414,7 +503,6 @@ public final class MainActivity extends AppCompatActivity {
                 .setSingleChoiceItems(R.array.sort_options, store.getSort(), (d, which) -> {
                     store.setSort(which);
                     d.dismiss();
-                    refreshLabels();
                     applyFilter();
                 })
                 .show();
@@ -423,6 +511,10 @@ public final class MainActivity extends AppCompatActivity {
     private void chooseQuality() {
         if (RecorderService.isActive()) {
             Toast.makeText(this, R.string.quality_locked, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (store.getMode() == Store.M_SPEECH) {
+            Toast.makeText(this, R.string.quality_fixed, Toast.LENGTH_SHORT).show();
             return;
         }
         new AlertDialog.Builder(this)
@@ -439,29 +531,45 @@ public final class MainActivity extends AppCompatActivity {
         String[] items = {
                 getString(R.string.rename),
                 getString(r.favorite ? R.string.unstar : R.string.star),
+                getString(R.string.label_title),
+                getString(R.string.duplicate),
                 getString(R.string.action_share),
-                getString(R.string.delete)
+                getString(R.string.save_device),
+                getString(R.string.move_trash)
         };
         new AlertDialog.Builder(this)
                 .setTitle(r.title)
                 .setItems(items, (d, which) -> {
-                    if (which == 0) {
-                        Ui.rename(this, r.title, name -> {
-                            r.title = name;
+                    switch (which) {
+                        case 0:
+                            Ui.rename(this, r.title, name -> {
+                                r.title = name;
+                                Repo.save(this, r);
+                                applyFilter();
+                            });
+                            break;
+                        case 1:
+                            r.favorite = !r.favorite;
                             Repo.save(this, r);
                             applyFilter();
-                        });
-                    } else if (which == 1) {
-                        r.favorite = !r.favorite;
-                        Repo.save(this, r);
-                        applyFilter();
-                    } else if (which == 2) {
-                        Ui.share(this, r);
-                    } else {
-                        Ui.confirm(this, R.string.delete_title, R.string.delete_message, R.string.delete, () -> {
-                            Repo.delete(this, r.id);
+                            break;
+                        case 2:
+                            Ui.chooseLabel(this, r, this::applyFilter);
+                            break;
+                        case 3:
+                            if (Repo.duplicate(this, r, getString(R.string.copy_title, r.title)) != null) reload();
+                            break;
+                        case 4:
+                            Ui.share(this, r);
+                            break;
+                        case 5:
+                            Ui.saveToDevice(this, r);
+                            break;
+                        default:
+                            Repo.trash(this, r);
+                            Toast.makeText(this, R.string.moved_trash, Toast.LENGTH_SHORT).show();
                             reload();
-                        });
+                            break;
                     }
                 })
                 .show();

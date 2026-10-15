@@ -9,6 +9,10 @@ public final class Store {
     public static final int Q_HIGH = 1;
     public static final int Q_MAX = 2;
 
+    public static final int M_STANDARD = 0;
+    public static final int M_INTERVIEW = 1;
+    public static final int M_SPEECH = 2;
+
     public static final int SORT_NEWEST = 0;
     public static final int SORT_OLDEST = 1;
     public static final int SORT_LONGEST = 2;
@@ -18,6 +22,7 @@ public final class Store {
     private static final String K_HAPTIC = "haptic";
     private static final String K_KEEP_AWAKE = "keep_awake";
     private static final String K_QUALITY = "quality";
+    private static final String K_MODE = "mode";
     private static final String K_SORT = "sort";
     private static final String K_SKIP = "skip_seconds";
     private static final String K_SPEED = "speed";
@@ -42,6 +47,13 @@ public final class Store {
         return 256000;
     }
 
+    public static int effectiveBitRate(int quality, int mode) {
+        if (mode == M_SPEECH) return 48000;
+        int base = bitRate(quality);
+        if (mode == M_INTERVIEW) return Math.min(base * 2, 320000);
+        return base;
+    }
+
     public boolean getHaptic() { return prefs.getBoolean(K_HAPTIC, true); }
     public void setHaptic(boolean b) { prefs.edit().putBoolean(K_HAPTIC, b).apply(); }
 
@@ -50,6 +62,9 @@ public final class Store {
 
     public int getQuality() { return prefs.getInt(K_QUALITY, Q_HIGH); }
     public void setQuality(int q) { prefs.edit().putInt(K_QUALITY, q).apply(); }
+
+    public int getMode() { return prefs.getInt(K_MODE, M_STANDARD); }
+    public void setMode(int m) { prefs.edit().putInt(K_MODE, m).apply(); }
 
     public int getSort() { return prefs.getInt(K_SORT, SORT_NEWEST); }
     public void setSort(int s) { prefs.edit().putInt(K_SORT, s).apply(); }

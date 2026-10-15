@@ -27,10 +27,12 @@ public final class RecordingAdapter extends RecyclerView.Adapter<RecordingAdapte
 
     private final Context ctx;
     private final Listener listener;
+    private final boolean trashMode;
     private List<Recording> items = new ArrayList<>();
 
-    public RecordingAdapter(Context ctx, Listener listener) {
+    public RecordingAdapter(Context ctx, boolean trashMode, Listener listener) {
         this.ctx = ctx;
+        this.trashMode = trashMode;
         this.listener = listener;
     }
 
@@ -60,6 +62,11 @@ public final class RecordingAdapter extends RecyclerView.Adapter<RecordingAdapte
         LinearLayout top = new LinearLayout(ctx);
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
+
+        View dot = new View(ctx);
+        LinearLayout.LayoutParams dlp0 = new LinearLayout.LayoutParams(Ui.dp(ctx, 9), Ui.dp(ctx, 9));
+        dlp0.setMarginEnd(Ui.dp(ctx, 8));
+        top.addView(dot, dlp0);
 
         TextView title = new TextView(ctx);
         title.setTextSize(17);
@@ -94,31 +101,51 @@ public final class RecordingAdapter extends RecyclerView.Adapter<RecordingAdapte
         meta.setEllipsize(TextUtils.TruncateAt.END);
         meta.setTextColor(Ui.attrColor(ctx, R.attr.cTextHint));
         LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        mlp.topMargin = Ui.dp(ctx, 2);
+        mlp.topMargin = Ui.dp(ctx, 3);
         card.addView(meta, mlp);
 
         WaveformView wave = new WaveformView(ctx);
-        LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(ctx, 30));
+        LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(ctx, 34));
         wlp.topMargin = Ui.dp(ctx, 10);
         card.addView(wave, wlp);
 
-        return new VH(card, title, star, duration, meta, wave);
+        return new VH(card, dot, title, star, duration, meta, wave);
     }
 
     @Override
     public void onBindViewHolder(@NonNull VH h, int position) {
         Recording r = items.get(position);
         h.title.setText(r.title);
-        h.star.setVisibility(r.favorite ? View.VISIBLE : View.GONE);
+        h.star.setVisibility(r.favorite && !trashMode ? View.VISIBLE : View.GONE);
+        if (r.label > 0 && !trashMode) {
+            h.dot.setVisibility(View.VISIBLE);
+            h.dot.setBackground(Ui.round(Labels.color(ctx, r.label), Ui.dp(ctx, 5), 0, 0));
+        } else {
+            h.dot.setVisibility(View.GONE);
+        }
         h.duration.setText(Fmt.duration(r.durationMs));
-        CharSequence when = DateUtils.getRelativeDateTimeString(ctx, r.createdAt,
-                DateUtils.MINUTE_IN_MILLIS, DateUtils.WEEK_IN_MILLIS, 0);
-        StringBuilder sb = new StringBuilder(when);
+
+        StringBuilder sb = new StringBuilder();
+        if (trashMode) {
+            long left = Repo.TRASH_RETENTION_MS - (System.currentTimeMillis() - r.deletedAt);
+            int days = (int) Math.max(0, (left + Repo.DAY_MS - 1) / Repo.DAY_MS);
+            sb.append(ctx.getResources().getString(R.string.days_left_fmt, days));
+        } else {
+            sb.append(DateUtils.getRelativeDateTimeString(ctx, r.createdAt,
+                    DateUtils.MINUTE_IN_MILLIS, DateUtils.WEEK_IN_MILLIS, 0));
+        }
         sb.append("  \u00B7  ").append(Fmt.size(r.size(ctx)));
+        if (r.mode != Store.M_STANDARD) {
+            String[] modes = ctx.getResources().getStringArray(R.array.mode_options);
+            if (r.mode < modes.length) sb.append("  \u00B7  ").append(modes[r.mode]);
+        }
         if (!r.markers.isEmpty()) sb.append("  \u00B7  ").append(ctx.getResources().getString(R.string.markers_short, r.markers.size()));
         h.meta.setText(sb);
         h.wave.setPeaks(r.peaksAsFloat());
-        h.itemView.setOnClickListener(v -> listener.onOpen(r));
+        h.itemView.setOnClickListener(v -> {
+            if (trashMode) listener.onMenu(r);
+            else listener.onOpen(r);
+        });
         h.itemView.setOnLongClickListener(v -> {
             listener.onMenu(r);
             return true;
@@ -131,14 +158,16 @@ public final class RecordingAdapter extends RecyclerView.Adapter<RecordingAdapte
     }
 
     static final class VH extends RecyclerView.ViewHolder {
+        final View dot;
         final TextView title;
         final ImageView star;
         final TextView duration;
         final TextView meta;
         final WaveformView wave;
 
-        VH(View itemView, TextView title, ImageView star, TextView duration, TextView meta, WaveformView wave) {
+        VH(View itemView, View dot, TextView title, ImageView star, TextView duration, TextView meta, WaveformView wave) {
             super(itemView);
+            this.dot = dot;
             this.title = title;
             this.star = star;
             this.duration = duration;

@@ -16,6 +16,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -23,6 +24,11 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import android.content.Intent;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.IOException;
@@ -38,6 +44,7 @@ public final class PlayerActivity extends AppCompatActivity {
     private MediaPlayer mp;
     private AudioManager audio;
     private AudioFocusRequest focusRequest;
+    private ActivityResultLauncher<Intent> trimLauncher;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private TextView tvTitle;
@@ -45,6 +52,8 @@ public final class PlayerActivity extends AppCompatActivity {
     private TextView tvPos;
     private TextView tvRemain;
     private TextView tagSpeed;
+    private TextView tagRepeat;
+    private TextView tagLabel;
     private WaveformView wave;
     private ImageView playIcon;
     private ImageButton btnStar;
@@ -52,6 +61,7 @@ public final class PlayerActivity extends AppCompatActivity {
     private LinearLayout markersCard;
 
     private float speed = 1f;
+    private boolean loop;
     private boolean dragging;
     private boolean ready;
     private long durationMs;
@@ -60,7 +70,7 @@ public final class PlayerActivity extends AppCompatActivity {
         @Override
         public void run() {
             updateProgress();
-            if (mp != null && mp.isPlaying()) handler.postDelayed(this, 50);
+            if (mp != null && mp.isPlaying()) handler.postDelayed(this, 33);
         }
     };
 
@@ -74,6 +84,13 @@ public final class PlayerActivity extends AppCompatActivity {
         store = new Store(this);
         audio = (AudioManager) getSystemService(AUDIO_SERVICE);
         speed = store.getSpeed();
+
+        trimLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                String id = result.getData().getStringExtra(TrimActivity.EXTRA_ID);
+                if (id != null) reloadWith(id);
+            }
+        });
 
         String id = getIntent().getStringExtra(EXTRA_ID);
         rec = id == null ? null : Repo.get(this, id);
@@ -97,10 +114,7 @@ public final class PlayerActivity extends AppCompatActivity {
     protected void onDestroy() {
         handler.removeCallbacks(tick);
         abandonFocus();
-        if (mp != null) {
-            mp.release();
-            mp = null;
-        }
+        releasePlayer();
         super.onDestroy();
     }
 
@@ -137,14 +151,9 @@ public final class PlayerActivity extends AppCompatActivity {
         btnShare.setOnClickListener(v -> Ui.share(this, rec));
         bar.addView(btnShare, spaced());
 
-        ImageButton btnDelete = Ui.iconButton(this, R.drawable.ic_trash, R.string.delete);
-        btnDelete.setImageTintList(ColorStateList.valueOf(getColor(R.color.bad)));
-        btnDelete.setOnClickListener(v -> Ui.confirm(this, R.string.delete_title, R.string.delete_message, R.string.delete, () -> {
-            stopPlayback();
-            Repo.delete(this, rec.id);
-            finish();
-        }));
-        bar.addView(btnDelete, spaced());
+        ImageButton btnMore = Ui.iconButton(this, R.drawable.ic_more, R.string.action_more);
+        btnMore.setOnClickListener(v -> showMore());
+        bar.addView(btnMore, spaced());
         root.addView(bar);
 
         ScrollView scroll = new ScrollView(this);
@@ -157,11 +166,7 @@ public final class PlayerActivity extends AppCompatActivity {
 
         tvTitle = Ui.largeTitle(this, rec.title);
         tvTitle.setClickable(true);
-        tvTitle.setOnClickListener(v -> Ui.rename(this, rec.title, name -> {
-            rec.title = name;
-            Repo.save(this, rec);
-            tvTitle.setText(name);
-        }));
+        tvTitle.setOnClickListener(v -> renameCurrent());
         content.addView(tvTitle);
 
         tvMeta = new TextView(this);
@@ -224,17 +229,37 @@ public final class PlayerActivity extends AppCompatActivity {
         controls.addView(skipButton(true));
         content.addView(controls);
 
+        HorizontalScrollView pillScroll = new HorizontalScrollView(this);
+        pillScroll.setHorizontalScrollBarEnabled(false);
+        pillScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        pillScroll.setFillViewport(true);
         LinearLayout pills = new LinearLayout(this);
         pills.setOrientation(LinearLayout.HORIZONTAL);
         pills.setGravity(Gravity.CENTER);
         pills.setPadding(dp(16), dp(12), dp(16), dp(4));
+
         tagSpeed = Ui.tag(this, Fmt.speed(speed));
         tagSpeed.setOnClickListener(v -> cycleSpeed());
         pills.addView(tagSpeed, pillLp());
+
+        tagRepeat = Ui.tag(this, getString(R.string.repeat));
+        tagRepeat.setOnClickListener(v -> {
+            loop = !loop;
+            if (mp != null && ready) mp.setLooping(loop);
+            Ui.setTagState(tagRepeat, loop);
+        });
+        pills.addView(tagRepeat, pillLp());
+
         TextView tagMark = Ui.tag(this, getString(R.string.add_marker));
         tagMark.setOnClickListener(v -> addMarker());
         pills.addView(tagMark, pillLp());
-        content.addView(pills);
+
+        tagLabel = Ui.tag(this, getString(R.string.label_title));
+        tagLabel.setOnClickListener(v -> Ui.chooseLabel(this, rec, this::refreshLabelTag));
+        pills.addView(tagLabel, pillLp());
+
+        pillScroll.addView(pills, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        content.addView(pillScroll);
 
         markersCard = new LinearLayout(this);
         markersCard.setOrientation(LinearLayout.VERTICAL);
@@ -298,6 +323,7 @@ public final class PlayerActivity extends AppCompatActivity {
 
     private void setupPlayer() {
         durationMs = rec.durationMs;
+        ready = false;
         try {
             mp = new MediaPlayer();
             mp.setAudioAttributes(new AudioAttributes.Builder()
@@ -309,6 +335,7 @@ public final class PlayerActivity extends AppCompatActivity {
             ready = true;
             int d = mp.getDuration();
             if (d > 0) durationMs = d;
+            mp.setLooping(loop);
             mp.setOnCompletionListener(p -> {
                 handler.removeCallbacks(tick);
                 abandonFocus();
@@ -323,16 +350,43 @@ public final class PlayerActivity extends AppCompatActivity {
         }
     }
 
+    private void releasePlayer() {
+        if (mp != null) {
+            try {
+                mp.release();
+            } catch (RuntimeException ignored) {
+            }
+            mp = null;
+        }
+        ready = false;
+    }
+
+    private void reloadWith(String id) {
+        Recording next = Repo.get(this, id);
+        if (next == null) return;
+        handler.removeCallbacks(tick);
+        abandonFocus();
+        releasePlayer();
+        rec = next;
+        playIcon.setImageResource(R.drawable.ic_play);
+        wave.setPeaks(rec.peaksAsFloat());
+        wave.setProgress(0f);
+        tvTitle.setText(rec.title);
+        setupPlayer();
+        refreshAll();
+    }
+
     private void refreshAll() {
         if (rec == null) return;
         wave.setDuration(durationMs);
         wave.setMarkers(rec.markers);
         CharSequence when = DateUtils.formatDateTime(this, rec.createdAt,
                 DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_SHOW_TIME | DateUtils.FORMAT_SHOW_YEAR | DateUtils.FORMAT_ABBREV_MONTH);
-        String[] q = getResources().getStringArray(R.array.quality_short);
-        String quality = q[Math.max(0, Math.min(q.length - 1, rec.quality))];
-        tvMeta.setText(when + "  \u00B7  " + Fmt.size(rec.size(this)) + "  \u00B7  " + quality);
+        String[] modes = getResources().getStringArray(R.array.mode_options);
+        String mode = modes[Math.max(0, Math.min(modes.length - 1, rec.mode))];
+        tvMeta.setText(when + "  \u00B7  " + Fmt.size(rec.size(this)) + "  \u00B7  " + mode);
         refreshStar();
+        refreshLabelTag();
         refreshMarkers();
         updateTimes(0);
     }
@@ -341,6 +395,23 @@ public final class PlayerActivity extends AppCompatActivity {
         btnStar.setImageResource(rec.favorite ? R.drawable.ic_star_fill : R.drawable.ic_star);
         btnStar.setImageTintList(ColorStateList.valueOf(rec.favorite ? getColor(R.color.warn) : c(R.attr.cTextPrimary)));
         btnStar.setContentDescription(getString(rec.favorite ? R.string.unstar : R.string.star));
+    }
+
+    private void refreshLabelTag() {
+        if (rec.label > 0) {
+            tagLabel.setText(Labels.name(this, rec.label));
+            int color = Labels.color(this, rec.label);
+            int left = tagLabel.getPaddingLeft();
+            int top = tagLabel.getPaddingTop();
+            int right = tagLabel.getPaddingRight();
+            int bottom = tagLabel.getPaddingBottom();
+            tagLabel.setBackground(Ui.round(color, dp(9), 0, 0));
+            tagLabel.setPadding(left, top, right, bottom);
+            tagLabel.setTextColor(getColor(R.color.on_accent));
+        } else {
+            tagLabel.setText(R.string.label_title);
+            Ui.setTagState(tagLabel, false);
+        }
     }
 
     private void refreshMarkers() {
@@ -399,6 +470,57 @@ public final class PlayerActivity extends AppCompatActivity {
             });
             markersBox.addView(row);
         }
+    }
+
+    private void renameCurrent() {
+        Ui.rename(this, rec.title, name -> {
+            rec.title = name;
+            Repo.save(this, rec);
+            tvTitle.setText(name);
+        });
+    }
+
+    private void showMore() {
+        String[] items = {
+                getString(R.string.rename),
+                getString(R.string.label_title),
+                getString(R.string.trim),
+                getString(R.string.duplicate),
+                getString(R.string.save_device),
+                getString(R.string.move_trash)
+        };
+        new AlertDialog.Builder(this)
+                .setItems(items, (d, which) -> {
+                    switch (which) {
+                        case 0:
+                            renameCurrent();
+                            break;
+                        case 1:
+                            Ui.chooseLabel(this, rec, this::refreshLabelTag);
+                            break;
+                        case 2:
+                            pausePlayback();
+                            Intent i = new Intent(this, TrimActivity.class);
+                            i.putExtra(TrimActivity.EXTRA_ID, rec.id);
+                            trimLauncher.launch(i);
+                            break;
+                        case 3:
+                            if (Repo.duplicate(this, rec, getString(R.string.copy_title, rec.title)) != null) {
+                                Toast.makeText(this, R.string.duplicated, Toast.LENGTH_SHORT).show();
+                            }
+                            break;
+                        case 4:
+                            Ui.saveToDevice(this, rec);
+                            break;
+                        default:
+                            stopPlayback();
+                            Repo.trash(this, rec);
+                            Toast.makeText(this, R.string.moved_trash, Toast.LENGTH_SHORT).show();
+                            finish();
+                            break;
+                    }
+                })
+                .show();
     }
 
     private void addMarker() {

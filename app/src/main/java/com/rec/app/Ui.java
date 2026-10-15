@@ -246,4 +246,40 @@ public final class Ui {
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         c.startActivity(Intent.createChooser(i, c.getString(R.string.action_share)));
     }
+
+    public static void saveToDevice(Context c, Recording r) {
+        if (android.os.Build.VERSION.SDK_INT < 29) {
+            share(c, r);
+            return;
+        }
+        final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+        final Context app = c.getApplicationContext();
+        new Thread(() -> {
+            final boolean ok = Repo.exportToDevice(app, r);
+            main.post(() -> android.widget.Toast.makeText(app, ok ? R.string.saved_device : R.string.save_failed, android.widget.Toast.LENGTH_LONG).show());
+        }).start();
+    }
+
+    public static void chooseLabel(Context c, Recording r, Runnable onDone) {
+        String[] names = Labels.names(c);
+        String[] items = new String[names.length + 1];
+        items[0] = c.getString(R.string.label_none);
+        System.arraycopy(names, 0, items, 1, names.length);
+        new AlertDialog.Builder(c)
+                .setTitle(R.string.label_title)
+                .setSingleChoiceItems(items, r.label, (d, which) -> {
+                    r.label = which;
+                    Repo.save(c, r);
+                    d.dismiss();
+                    if (onDone != null) onDone.run();
+                })
+                .show();
+    }
+
+    public static View dot(Context c, int color, int sizeDp) {
+        View v = new View(c);
+        v.setBackground(round(color, dp(c, sizeDp) / 2, 0, 0));
+        v.setLayoutParams(new LinearLayout.LayoutParams(dp(c, sizeDp), dp(c, sizeDp)));
+        return v;
+    }
 }

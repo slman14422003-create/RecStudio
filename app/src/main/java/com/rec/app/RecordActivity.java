@@ -37,16 +37,15 @@ public final class RecordActivity extends AppCompatActivity {
     private boolean seenActive;
     private long requestedAt;
     private int consumed;
-    private float pending;
-    private int pendingCount;
     private int lastState = -1;
     private int lastMarkers = -1;
+    private long lastSecond = -1;
 
     private final Runnable tick = new Runnable() {
         @Override
         public void run() {
             update();
-            handler.postDelayed(this, 50);
+            handler.postDelayed(this, 16);
         }
     };
 
@@ -78,8 +77,7 @@ public final class RecordActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         consumed = 0;
-        pendingCount = 0;
-        pending = 0f;
+        lastState = -1;
         wave.clearLevels();
         handler.post(tick);
     }
@@ -176,9 +174,8 @@ public final class RecordActivity extends AppCompatActivity {
             Ui.haptic(v, store);
             stopAndOpen();
         });
-        FrameLayout.LayoutParams stopLp = new FrameLayout.LayoutParams(dp(84), dp(84));
         FrameLayout stopWrap = new FrameLayout(this);
-        stopWrap.addView(stop, stopLp);
+        stopWrap.addView(stop, new FrameLayout.LayoutParams(dp(84), dp(84)));
         panel.addView(cell(stopWrap, controlLabel(getString(R.string.action_stop))), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         ImageButton btnMark = Ui.roundButton(this, R.drawable.ic_flag, R.string.action_marker, 60);
@@ -220,9 +217,10 @@ public final class RecordActivity extends AppCompatActivity {
         LinearLayout l = new LinearLayout(this);
         l.setOrientation(LinearLayout.VERTICAL);
         l.setGravity(Gravity.CENTER_HORIZONTAL);
-        LinearLayout.LayoutParams blp = (LinearLayout.LayoutParams) (button.getLayoutParams() instanceof LinearLayout.LayoutParams
-                ? button.getLayoutParams()
-                : new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        ViewGroup.LayoutParams existing = button.getLayoutParams();
+        LinearLayout.LayoutParams blp = existing instanceof LinearLayout.LayoutParams
+                ? (LinearLayout.LayoutParams) existing
+                : new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         l.addView(button, blp);
         l.addView(label);
         return l;
@@ -248,27 +246,26 @@ public final class RecordActivity extends AppCompatActivity {
         }
         seenActive = true;
 
-        tvTime.setText(Fmt.duration(s.elapsedMs()));
+        long elapsed = s.elapsedMs();
+        long sec = elapsed / 1000;
+        if (sec != lastSecond) {
+            lastSecond = sec;
+            tvTime.setText(Fmt.duration(elapsed));
+        }
 
         int n = s.levelCount();
-        boolean changed = false;
-        while (consumed < n) {
-            pending = Math.max(pending, s.levelAt(consumed));
-            pendingCount++;
-            consumed++;
-            if (pendingCount >= 2) {
-                wave.addLevel(pending);
-                pending = 0f;
-                pendingCount = 0;
-                changed = true;
-            }
+        if (n - consumed > 3) {
+            while (consumed < n) wave.preload(s.levelAt(consumed++));
+            wave.syncTime();
+        } else {
+            while (consumed < n) wave.addLevel(s.levelAt(consumed++));
         }
-        if (changed) wave.invalidate();
 
         int st = s.state();
         if (st != lastState) {
             lastState = st;
             boolean paused = st == RecorderService.PAUSED;
+            wave.setRunning(!paused);
             tagState.setText(paused ? R.string.state_paused : R.string.state_recording);
             if (paused) Ui.setTagState(tagState, false);
             else Ui.setTagRecording(tagState);
@@ -283,10 +280,15 @@ public final class RecordActivity extends AppCompatActivity {
 
     private void updateInfo(RecorderService s) {
         lastMarkers = s.markerCount();
+        String[] modes = getResources().getStringArray(R.array.mode_options);
         String[] q = getResources().getStringArray(R.array.quality_options);
-        String quality = q[Math.max(0, Math.min(q.length - 1, s.quality()))];
-        String text = quality;
-        if (lastMarkers > 0) text = quality + "  \u00B7  " + getString(R.string.markers_short, lastMarkers);
+        String text = modes[Math.max(0, Math.min(modes.length - 1, s.mode()))];
+        if (s.mode() == Store.M_SPEECH) {
+            text = text + "  \u00B7  " + getString(R.string.quality_voice);
+        } else {
+            text = text + "  \u00B7  " + q[Math.max(0, Math.min(q.length - 1, s.quality()))];
+        }
+        if (lastMarkers > 0) text = text + "  \u00B7  " + getString(R.string.markers_short, lastMarkers);
         tvInfo.setText(text);
     }
 

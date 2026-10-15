@@ -95,4 +95,58 @@
         <item>عالية</item>
         <item>قصوى</item>
     </string-array>
+
+    <string name="action_more">المزيد</string>
+    <string name="repeat">تكرار</string>
+    <string name="duplicate">تكرار نسخة</string>
+    <string name="duplicated">تم نسخ التسجيل</string>
+    <string name="copy_title">نسخة من %1$s</string>
+    <string name="save_device">حفظ في الجهاز</string>
+    <string name="saved_device">تم الحفظ في مجلد التسجيلات على الجهاز</string>
+    <string name="save_failed">تعذّر حفظ الملف</string>
+    <string name="move_trash">نقل إلى المحذوفات</string>
+    <string name="moved_trash">تم النقل إلى المحذوفات</string>
+    <string name="mode_locked">لا يمكن تغيير الوضع أثناء التسجيل</string>
+    <string name="quality_voice">صوت · 48 كيلوبت</string>
+    <string name="quality_fixed">وضع الخطاب يستخدم جودة صوت ثابتة</string>
+    <string name="free_hours_fmt">متبقي %1$d س</string>
+    <string name="free_days_fmt">متبقي %1$d يوم</string>
+
+    <string name="label_title">التصنيف</string>
+    <string name="label_none">بدون تصنيف</string>
+
+    <string name="trash_title">المحذوفات</string>
+    <string name="trash_hint">تُحذف التسجيلات نهائيًا بعد 30 يومًا.</string>
+    <string name="trash_empty">لا توجد تسجيلات محذوفة</string>
+    <string name="days_left_fmt">متبقي %1$d يوم</string>
+    <string name="restore">استرجاع</string>
+    <string name="delete_forever">حذف نهائي</string>
+    <string name="delete_forever_message">سيتم حذف هذا التسجيل نهائيًا ولا يمكن استرجاعه.</string>
+    <string name="empty_trash">حذف الكل</string>
+    <string name="empty_trash_title">حذف كل التسجيلات؟</string>
+    <string name="empty_trash_message">سيتم حذف كل التسجيلات في المحذوفات نهائيًا.</string>
+
+    <string name="trim">قص</string>
+    <string name="trim_title">قص التسجيل</string>
+    <string name="trim_hint">اسحب المقبضين لاختيار الجزء الذي تريد الاحتفاظ به.</string>
+    <string name="trim_preview">معاينة المقطع المحدد</string>
+    <string name="trim_save_new">حفظ كتسجيل جديد</string>
+    <string name="trim_replace">استبدال الأصلي</string>
+    <string name="trim_saving">جارٍ الحفظ…</string>
+    <string name="trim_failed">تعذّر قص هذا التسجيل</string>
+    <string name="trim_too_short">المقطع المحدد قصير جدًا</string>
+    <string name="trim_copy_title">%1$s (مقصوص)</string>
+
+    <string-array name="mode_options">
+        <item>عادي</item>
+        <item>مقابلة</item>
+        <item>خطاب</item>
+    </string-array>
+    <string-array name="label_names">
+        <item>عمل</item>
+        <item>شخصي</item>
+        <item>محاضرة</item>
+        <item>اجتماع</item>
+        <item>أفكار</item>
+    </string-array>
 </resources>

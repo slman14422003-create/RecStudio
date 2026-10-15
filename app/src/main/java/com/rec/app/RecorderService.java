@@ -20,7 +20,6 @@ import androidx.core.content.ContextCompat;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.UUID;
 
 public final class RecorderService extends Service {
 
@@ -53,6 +52,7 @@ public final class RecorderService extends Service {
     private String id;
     private int state = IDLE;
     private int quality;
+    private int mode;
     private long accumulated;
     private long segmentStart;
     private long createdAt;
@@ -103,6 +103,8 @@ public final class RecorderService extends Service {
     public int state() { return state; }
 
     public int quality() { return quality; }
+
+    public int mode() { return mode; }
 
     public long elapsedMs() {
         if (state == RECORDING) return accumulated + (System.currentTimeMillis() - segmentStart);
@@ -187,14 +189,26 @@ public final class RecorderService extends Service {
     }
 
     private boolean begin() {
-        quality = new Store(this).getQuality();
-        id = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        Store store = new Store(this);
+        quality = store.getQuality();
+        mode = store.getMode();
+        id = Repo.newId();
         createdAt = System.currentTimeMillis();
         File out = Repo.audio(this, id);
-        if (!prepare(out, Store.sampleRate(quality), Store.bitRate(quality))) {
-            if (!prepare(out, 44100, 128000)) return false;
-            quality = Store.Q_HIGH;
+        int source = MediaRecorder.AudioSource.MIC;
+        int channels = 1;
+        int rate = Store.sampleRate(quality);
+        int bits = Store.effectiveBitRate(quality, mode);
+        if (mode == Store.M_INTERVIEW) {
+            channels = 2;
+        } else if (mode == Store.M_SPEECH) {
+            source = MediaRecorder.AudioSource.VOICE_RECOGNITION;
+            rate = 16000;
         }
+        boolean ok = prepare(out, source, channels, rate, bits);
+        if (!ok && channels == 2) ok = prepare(out, source, 1, rate, bits / 2);
+        if (!ok) ok = prepare(out, MediaRecorder.AudioSource.MIC, 1, 44100, 128000);
+        if (!ok) return false;
         try {
             recorder.start();
         } catch (RuntimeException e) {
@@ -213,15 +227,15 @@ public final class RecorderService extends Service {
         return true;
     }
 
-    private boolean prepare(File out, int rate, int bits) {
+    private boolean prepare(File out, int source, int channels, int rate, int bits) {
         releaseRecorder();
         try {
             MediaRecorder r = Build.VERSION.SDK_INT >= 31 ? new MediaRecorder(this) : new MediaRecorder();
             recorder = r;
-            r.setAudioSource(MediaRecorder.AudioSource.MIC);
+            r.setAudioSource(source);
             r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
             r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            r.setAudioChannels(1);
+            r.setAudioChannels(channels);
             r.setAudioSamplingRate(rate);
             r.setAudioEncodingBitRate(bits);
             r.setOutputFile(out.getAbsolutePath());
@@ -302,6 +316,7 @@ public final class RecorderService extends Service {
             Recording r = new Recording(id, getString(R.string.default_title) + " " + store.nextIndex(), createdAt);
             r.durationMs = duration;
             r.quality = quality;
+            r.mode = mode;
             r.markers.addAll(markers);
             r.peaks = downsample();
             Repo.save(this, r);

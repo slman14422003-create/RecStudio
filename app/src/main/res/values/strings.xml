@@ -95,4 +95,58 @@
         <item>High</item>
         <item>Maximum</item>
     </string-array>
+
+    <string name="action_more">More</string>
+    <string name="repeat">Repeat</string>
+    <string name="duplicate">Duplicate</string>
+    <string name="duplicated">Recording duplicated</string>
+    <string name="copy_title">%1$s copy</string>
+    <string name="save_device">Save to device</string>
+    <string name="saved_device">Saved to the Recordings folder on this device</string>
+    <string name="save_failed">Could not save the file</string>
+    <string name="move_trash">Move to Recently Deleted</string>
+    <string name="moved_trash">Moved to Recently Deleted</string>
+    <string name="mode_locked">Mode cannot change while recording</string>
+    <string name="quality_voice">Voice · 48 kbps</string>
+    <string name="quality_fixed">Speech mode uses a fixed voice quality</string>
+    <string name="free_hours_fmt">%1$d h left</string>
+    <string name="free_days_fmt">%1$d d left</string>
+
+    <string name="label_title">Label</string>
+    <string name="label_none">No label</string>
+
+    <string name="trash_title">Recently Deleted</string>
+    <string name="trash_hint">Recordings are permanently deleted after 30 days.</string>
+    <string name="trash_empty">No deleted recordings</string>
+    <string name="days_left_fmt">%1$d days left</string>
+    <string name="restore">Restore</string>
+    <string name="delete_forever">Delete permanently</string>
+    <string name="delete_forever_message">This recording will be deleted permanently and cannot be recovered.</string>
+    <string name="empty_trash">Delete all</string>
+    <string name="empty_trash_title">Delete all recordings?</string>
+    <string name="empty_trash_message">All recordings in Recently Deleted will be removed permanently.</string>
+
+    <string name="trim">Trim</string>
+    <string name="trim_title">Trim</string>
+    <string name="trim_hint">Drag the handles to choose the part to keep.</string>
+    <string name="trim_preview">Preview selection</string>
+    <string name="trim_save_new">Save as new recording</string>
+    <string name="trim_replace">Replace original</string>
+    <string name="trim_saving">Saving…</string>
+    <string name="trim_failed">Could not trim this recording</string>
+    <string name="trim_too_short">Selection is too short</string>
+    <string name="trim_copy_title">%1$s (trimmed)</string>
+
+    <string-array name="mode_options">
+        <item>Standard</item>
+        <item>Interview</item>
+        <item>Speech</item>
+    </string-array>
+    <string-array name="label_names">
+        <item>Work</item>
+        <item>Personal</item>
+        <item>Lecture</item>
+        <item>Meeting</item>
+        <item>Ideas</item>
+    </string-array>
 </resources>
