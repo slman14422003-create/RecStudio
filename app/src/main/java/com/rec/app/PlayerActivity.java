@@ -192,20 +192,25 @@ public final class PlayerActivity extends AppCompatActivity {
         wlp.setMargins(dp(16), 0, dp(16), 0);
         content.addView(waveCard, wlp);
 
-        LinearLayout times = new LinearLayout(this);
-        times.setOrientation(LinearLayout.HORIZONTAL);
-        times.setPadding(dp(26), dp(10), dp(26), 0);
-        tvPos = timeText();
+        tvPos = new TextView(this);
+        tvPos.setGravity(Gravity.CENTER);
+        tvPos.setTextSize(46);
+        tvPos.setIncludeFontPadding(false);
+        tvPos.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
+        tvPos.setTextColor(c(R.attr.cTextPrimary));
+        LinearLayout.LayoutParams plp0 = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        plp0.topMargin = dp(18);
+        content.addView(tvPos, plp0);
+
         tvRemain = timeText();
-        tvRemain.setGravity(Gravity.END);
-        times.addView(tvPos, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        times.addView(tvRemain, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        content.addView(times);
+        tvRemain.setGravity(Gravity.CENTER);
+        tvRemain.setPadding(0, dp(4), 0, 0);
+        content.addView(tvRemain);
 
         LinearLayout controls = new LinearLayout(this);
         controls.setOrientation(LinearLayout.HORIZONTAL);
         controls.setGravity(Gravity.CENTER);
-        controls.setPadding(0, dp(20), 0, dp(8));
+        controls.setPadding(0, dp(22), 0, dp(8));
         controls.addView(skipButton(false));
 
         FrameLayout play = new FrameLayout(this);
@@ -598,8 +603,8 @@ public final class PlayerActivity extends AppCompatActivity {
     }
 
     private void updateTimes(long pos) {
-        tvPos.setText(Fmt.duration(pos));
-        tvRemain.setText("-" + Fmt.duration(Math.max(0, durationMs - pos)));
+        tvPos.setText(Fmt.durationTenths(pos));
+        tvRemain.setText("-" + Fmt.duration(Math.max(0, durationMs - pos)) + "  \u00B7  " + Fmt.duration(durationMs));
     }
 
     private boolean requestFocus() {

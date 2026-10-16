@@ -1,5 +1,6 @@
 package com.rec.app;
 
+import android.animation.ObjectAnimator;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
@@ -33,6 +34,9 @@ public final class RecordActivity extends AppCompatActivity {
     private TextView labelPause;
     private ImageButton btnPause;
     private WaveformView wave;
+    private LevelMeterView meter;
+    private TextView tvClip;
+    private ObjectAnimator pulse;
 
     private boolean seenActive;
     private long requestedAt;
@@ -86,6 +90,22 @@ public final class RecordActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         handler.removeCallbacks(tick);
+        stopPulse();
+    }
+
+    private void startPulse() {
+        if (pulse == null) {
+            pulse = ObjectAnimator.ofFloat(tagState, View.ALPHA, 1f, 0.45f);
+            pulse.setDuration(800);
+            pulse.setRepeatMode(ObjectAnimator.REVERSE);
+            pulse.setRepeatCount(ObjectAnimator.INFINITE);
+        }
+        if (!pulse.isStarted()) pulse.start();
+    }
+
+    private void stopPulse() {
+        if (pulse != null) pulse.cancel();
+        if (tagState != null) tagState.setAlpha(1f);
     }
 
     private int c(int attr) { return Ui.attrColor(this, attr); }
@@ -138,6 +158,7 @@ public final class RecordActivity extends AppCompatActivity {
         root.addView(tvInfo, ilp);
 
         LinearLayout mid = new LinearLayout(this);
+        mid.setOrientation(LinearLayout.VERTICAL);
         mid.setGravity(Gravity.CENTER);
         LinearLayout card = Ui.card(this);
         card.setPadding(dp(12), dp(12), dp(12), dp(12));
@@ -147,6 +168,22 @@ public final class RecordActivity extends AppCompatActivity {
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(180));
         clp.setMargins(dp(16), 0, dp(16), 0);
         mid.addView(card, clp);
+
+        meter = new LevelMeterView(this);
+        LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(6));
+        mlp.setMargins(dp(28), dp(16), dp(28), 0);
+        mid.addView(meter, mlp);
+
+        tvClip = new TextView(this);
+        tvClip.setText(R.string.too_loud);
+        tvClip.setTextSize(13);
+        tvClip.setGravity(Gravity.CENTER);
+        tvClip.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        tvClip.setTextColor(getColor(R.color.bad));
+        tvClip.setVisibility(View.INVISIBLE);
+        LinearLayout.LayoutParams clipLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        clipLp.topMargin = dp(10);
+        mid.addView(tvClip, clipLp);
         root.addView(mid, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         LinearLayout panel = new LinearLayout(this);
@@ -261,14 +298,22 @@ public final class RecordActivity extends AppCompatActivity {
             while (consumed < n) wave.addLevel(s.levelAt(consumed++));
         }
 
+        meter.setLevel(s.lastLevel());
+        tvClip.setVisibility(s.isClipping() ? View.VISIBLE : View.INVISIBLE);
+
         int st = s.state();
         if (st != lastState) {
             lastState = st;
             boolean paused = st == RecorderService.PAUSED;
             wave.setRunning(!paused);
             tagState.setText(paused ? R.string.state_paused : R.string.state_recording);
-            if (paused) Ui.setTagState(tagState, false);
-            else Ui.setTagRecording(tagState);
+            if (paused) {
+                Ui.setTagState(tagState, false);
+                stopPulse();
+            } else {
+                Ui.setTagRecording(tagState);
+                startPulse();
+            }
             tvTime.setTextColor(paused ? c(R.attr.cTextSecondary) : c(R.attr.cTextPrimary));
             btnPause.setImageResource(paused ? R.drawable.ic_mic : R.drawable.ic_pause);
             labelPause.setText(paused ? R.string.action_resume : R.string.action_pause);
@@ -288,6 +333,7 @@ public final class RecordActivity extends AppCompatActivity {
         } else {
             text = text + "  \u00B7  " + q[Math.max(0, Math.min(q.length - 1, s.quality()))];
         }
+        if (s.noiseReduction()) text = text + "  \u00B7  " + getString(R.string.info_denoise);
         if (lastMarkers > 0) text = text + "  \u00B7  " + getString(R.string.markers_short, lastMarkers);
         tvInfo.setText(text);
     }

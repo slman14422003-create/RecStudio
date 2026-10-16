@@ -149,4 +149,32 @@
         <item>اجتماع</item>
         <item>أفكار</item>
     </string-array>
+
+    <string name="recordings_title">التسجيلات</string>
+    <string name="action_close">إغلاق</string>
+    <string name="action_star_short">تفضيل</string>
+    <string name="select">تحديد</string>
+    <string name="select_all">تحديد الكل</string>
+    <string name="deselect_all">إلغاء التحديد</string>
+    <string name="selected_fmt">%1$d محدد</string>
+    <string name="bulk_delete_message">سيتم نقل %1$d تسجيل إلى المحذوفات.</string>
+    <string name="bulk_forever_message">سيتم حذف %1$d تسجيل نهائيًا ولا يمكن استرجاعها.</string>
+    <string name="restored_fmt">تم استرجاع %1$d تسجيل</string>
+
+    <string name="too_loud">الصوت مرتفع جدًا، أبعد الميكروفون</string>
+    <string name="info_denoise">عزل الضجيج</string>
+
+    <string name="group_audio">تحسين الصوت</string>
+    <string name="settings_noise">عزل الضجيج</string>
+    <string name="settings_agc">ضبط مستوى الصوت تلقائيًا</string>
+    <string name="settings_lowcut">مرشّح الترددات المنخفضة</string>
+    <string name="settings_gain">تضخيم الميكروفون</string>
+    <string name="footer_recording">الجودة الأعلى تعطي صوتًا أوضح وملفات أكبر.</string>
+    <string name="footer_audio">عزل الضجيج وضبط المستوى يستخدمان معالجة الهاتف المدمجة إن وُجدت. مرشّح الترددات المنخفضة يزيل الدمدمة والرياح وضجيج اللمس تحت 80 هرتز. ارفع التضخيم للمصادر الهادئة فقط، وراقب مؤشر المستوى أثناء التسجيل.</string>
+    <string-array name="gain_options">
+        <item>0 dB</item>
+        <item>+3 dB</item>
+        <item>+6 dB</item>
+        <item>+9 dB</item>
+    </string-array>
 </resources>

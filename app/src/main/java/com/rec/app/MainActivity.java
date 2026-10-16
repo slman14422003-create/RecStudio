@@ -4,6 +4,7 @@ import android.Manifest;
 import android.animation.AnimatorInflater;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Typeface;
@@ -30,6 +31,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
@@ -72,6 +74,15 @@ public final class MainActivity extends AppCompatActivity {
     private TextView[] segItems;
     private View recInner;
     private boolean lastActive;
+    private View normalBar;
+    private View selBar;
+    private View recPanel;
+    private LinearLayout selActions;
+    private TextView selTitle;
+    private TextView selAllTag;
+    private ImageButton selMore;
+    private boolean inSelection;
+    private OnBackPressedCallback backCallback;
 
     private ActivityResultLauncher<String[]> permLauncher;
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -97,6 +108,14 @@ public final class MainActivity extends AppCompatActivity {
                 showPermissionDenied();
             }
         });
+
+        backCallback = new OnBackPressedCallback(false) {
+            @Override
+            public void handleOnBackPressed() {
+                exitSelection();
+            }
+        };
+        getOnBackPressedDispatcher().addCallback(this, backCallback);
 
         buildUi();
     }
@@ -125,7 +144,12 @@ public final class MainActivity extends AppCompatActivity {
         root.setBackgroundColor(c(R.attr.cBg));
         root.setFitsSystemWindows(true);
 
-        root.addView(buildTopBar());
+        normalBar = buildTopBar();
+        selBar = buildSelectionBar();
+        selBar.setVisibility(View.GONE);
+        root.addView(normalBar);
+        root.addView(selBar);
+        root.addView(Ui.largeTitle(this, R.string.recordings_title));
         root.addView(buildFilters());
 
         search = new EditText(this);
@@ -178,7 +202,7 @@ public final class MainActivity extends AppCompatActivity {
         rv.setPadding(dp(16), dp(2), dp(16), dp(16));
         adapter = new RecordingAdapter(this, false, new RecordingAdapter.Listener() {
             @Override public void onOpen(Recording r) { openPlayer(r.id); }
-            @Override public void onMenu(Recording r) { showMenu(r); }
+            @Override public void onSelectionChanged(int count, int total) { onSelection(count, total); }
         });
         rv.setAdapter(adapter);
         attachSwipe();
@@ -204,7 +228,11 @@ public final class MainActivity extends AppCompatActivity {
         body.addView(emptyView, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         root.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-        root.addView(buildRecordPanel());
+        recPanel = buildRecordPanel();
+        root.addView(recPanel);
+        selActions = buildSelectionActions();
+        selActions.setVisibility(View.GONE);
+        root.addView(selActions);
         setContentView(root);
         refreshChips();
         refreshSegment();
@@ -226,15 +254,9 @@ public final class MainActivity extends AppCompatActivity {
         tlp.setMarginStart(dp(8));
         bar.addView(btnTrash, tlp);
 
-        TextView title = new TextView(this);
-        title.setText(R.string.app_name);
-        title.setTextSize(18);
-        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        title.setTextColor(c(R.attr.cTextPrimary));
-        title.setGravity(Gravity.CENTER);
-        title.setSingleLine(true);
-        title.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        bar.addView(title);
+        View spacer = new View(this);
+        spacer.setLayoutParams(new LinearLayout.LayoutParams(0, 1, 1f));
+        bar.addView(spacer);
 
         ImageButton btnSort = Ui.iconButton(this, R.drawable.ic_sort, R.string.sort_title);
         btnSort.setOnClickListener(v -> chooseSort());
@@ -367,6 +389,11 @@ public final class MainActivity extends AppCompatActivity {
             }
 
             @Override
+            public int getSwipeDirs(@NonNull RecyclerView r, @NonNull RecyclerView.ViewHolder vh) {
+                return adapter.isSelecting() ? 0 : super.getSwipeDirs(r, vh);
+            }
+
+            @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder vh, int direction) {
                 final int pos = vh.getBindingAdapterPosition();
                 if (pos == RecyclerView.NO_POSITION) return;
@@ -407,6 +434,148 @@ public final class MainActivity extends AppCompatActivity {
             }
         });
         helper.attachToRecyclerView(rv);
+    }
+
+    private View buildSelectionBar() {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setPadding(dp(16), dp(8), dp(16), dp(4));
+
+        ImageButton close = Ui.iconButton(this, R.drawable.ic_close, R.string.action_close);
+        close.setOnClickListener(v -> exitSelection());
+        bar.addView(close);
+
+        selTitle = new TextView(this);
+        selTitle.setTextSize(18);
+        selTitle.setSingleLine(true);
+        selTitle.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        selTitle.setTextColor(c(R.attr.cTextPrimary));
+        selTitle.setPadding(dp(10), 0, dp(10), 0);
+        bar.addView(selTitle, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        selAllTag = Ui.tag(this, getString(R.string.select_all));
+        selAllTag.setOnClickListener(v -> adapter.selectAll(!adapter.allSelected()));
+        bar.addView(selAllTag, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        selMore = Ui.iconButton(this, R.drawable.ic_more, R.string.action_more);
+        selMore.setOnClickListener(v -> {
+            List<Recording> sel = adapter.selectedItems();
+            if (sel.size() != 1) return;
+            Recording r = sel.get(0);
+            exitSelection();
+            showMenu(r);
+        });
+        LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(dp(40), dp(40));
+        mlp.setMarginStart(dp(6));
+        bar.addView(selMore, mlp);
+        return bar;
+    }
+
+    private LinearLayout buildSelectionActions() {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setBackgroundResource(R.drawable.bg_keypad_panel);
+        bar.setPadding(dp(10), dp(8), dp(10), dp(8));
+        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(72));
+        plp.setMargins(dp(12), dp(4), dp(12), dp(12));
+        bar.setLayoutParams(plp);
+
+        LinearLayout star = Ui.action(this, R.drawable.ic_star, R.string.action_star_short, c(R.attr.cTextPrimary));
+        star.setOnClickListener(v -> bulkStar());
+        bar.addView(star, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+
+        LinearLayout label = Ui.action(this, R.drawable.ic_label, R.string.label_title, c(R.attr.cTextPrimary));
+        label.setOnClickListener(v -> bulkLabel());
+        bar.addView(label, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+
+        LinearLayout share = Ui.action(this, R.drawable.ic_share, R.string.action_share, c(R.attr.cTextPrimary));
+        share.setOnClickListener(v -> {
+            List<Recording> sel = adapter.selectedItems();
+            if (!sel.isEmpty()) Ui.shareMany(this, sel);
+        });
+        bar.addView(share, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+
+        LinearLayout delete = Ui.action(this, R.drawable.ic_trash, R.string.delete, getColor(R.color.bad));
+        delete.setOnClickListener(v -> bulkDelete());
+        bar.addView(delete, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        return bar;
+    }
+
+    private void onSelection(int count, int total) {
+        if (!inSelection) enterSelectionUi();
+        selTitle.setText(getString(R.string.selected_fmt, count));
+        selAllTag.setText(count == total && total > 0 ? R.string.deselect_all : R.string.select_all);
+        selMore.setVisibility(count == 1 ? View.VISIBLE : View.INVISIBLE);
+        selActions.setAlpha(count == 0 ? 0.4f : 1f);
+    }
+
+    private void enterSelectionUi() {
+        inSelection = true;
+        normalBar.setVisibility(View.GONE);
+        selBar.setVisibility(View.VISIBLE);
+        recPanel.setVisibility(View.GONE);
+        selActions.setVisibility(View.VISIBLE);
+        backCallback.setEnabled(true);
+    }
+
+    private void exitSelection() {
+        if (!inSelection) return;
+        inSelection = false;
+        adapter.stopSelection();
+        normalBar.setVisibility(View.VISIBLE);
+        selBar.setVisibility(View.GONE);
+        recPanel.setVisibility(View.VISIBLE);
+        selActions.setVisibility(View.GONE);
+        backCallback.setEnabled(false);
+    }
+
+    private void bulkStar() {
+        List<Recording> sel = adapter.selectedItems();
+        if (sel.isEmpty()) return;
+        boolean allFav = true;
+        for (Recording r : sel) if (!r.favorite) allFav = false;
+        for (Recording r : sel) {
+            r.favorite = !allFav;
+            Repo.save(this, r);
+        }
+        applyFilter();
+    }
+
+    private void bulkLabel() {
+        final List<Recording> sel = adapter.selectedItems();
+        if (sel.isEmpty()) return;
+        String[] names = Labels.names(this);
+        String[] items = new String[names.length + 1];
+        items[0] = getString(R.string.label_none);
+        System.arraycopy(names, 0, items, 1, names.length);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.label_title)
+                .setItems(items, (d, which) -> {
+                    for (Recording r : sel) {
+                        r.label = which;
+                        Repo.save(this, r);
+                    }
+                    applyFilter();
+                })
+                .show();
+    }
+
+    private void bulkDelete() {
+        final List<Recording> sel = adapter.selectedItems();
+        if (sel.isEmpty()) return;
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.delete_title)
+                .setMessage(getString(R.string.bulk_delete_message, sel.size()))
+                .setPositiveButton(R.string.delete, (d, w) -> {
+                    for (Recording r : sel) Repo.trash(this, r);
+                    exitSelection();
+                    Toast.makeText(this, R.string.moved_trash, Toast.LENGTH_SHORT).show();
+                    reload();
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 
     private void toggleSearch() {

@@ -6,8 +6,10 @@ import android.graphics.Typeface;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.view.Gravity;
+import android.view.HapticFeedbackConstants;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -16,18 +18,22 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public final class RecordingAdapter extends RecyclerView.Adapter<RecordingAdapter.VH> {
 
     public interface Listener {
         void onOpen(Recording r);
-        void onMenu(Recording r);
+        void onSelectionChanged(int count, int total);
     }
 
     private final Context ctx;
     private final Listener listener;
     private final boolean trashMode;
+    private final Set<String> selected = new HashSet<>();
+    private boolean selecting;
     private List<Recording> items = new ArrayList<>();
 
     public RecordingAdapter(Context ctx, boolean trashMode, Listener listener) {
@@ -38,11 +44,62 @@ public final class RecordingAdapter extends RecyclerView.Adapter<RecordingAdapte
 
     public void submit(List<Recording> list) {
         items = list;
+        if (selecting) {
+            Set<String> ids = new HashSet<>();
+            for (Recording r : list) ids.add(r.id);
+            selected.retainAll(ids);
+        }
         notifyDataSetChanged();
+        if (selecting) listener.onSelectionChanged(selected.size(), items.size());
     }
 
     public Recording get(int position) {
         return items.get(position);
+    }
+
+    public boolean isSelecting() {
+        return selecting;
+    }
+
+    public void startSelection(String id) {
+        selecting = true;
+        selected.clear();
+        if (id != null) selected.add(id);
+        notifyDataSetChanged();
+        listener.onSelectionChanged(selected.size(), items.size());
+    }
+
+    public void stopSelection() {
+        selecting = false;
+        selected.clear();
+        notifyDataSetChanged();
+    }
+
+    public void selectAll(boolean all) {
+        selected.clear();
+        if (all) for (Recording r : items) selected.add(r.id);
+        notifyDataSetChanged();
+        listener.onSelectionChanged(selected.size(), items.size());
+    }
+
+    public boolean allSelected() {
+        return !items.isEmpty() && selected.size() == items.size();
+    }
+
+    public int selectedCount() {
+        return selected.size();
+    }
+
+    public List<Recording> selectedItems() {
+        List<Recording> out = new ArrayList<>();
+        for (Recording r : items) if (selected.contains(r.id)) out.add(r);
+        return out;
+    }
+
+    private void toggle(Recording r, int position) {
+        if (!selected.remove(r.id)) selected.add(r.id);
+        notifyItemChanged(position);
+        listener.onSelectionChanged(selected.size(), items.size());
     }
 
     @NonNull
@@ -62,6 +119,15 @@ public final class RecordingAdapter extends RecyclerView.Adapter<RecordingAdapte
         LinearLayout top = new LinearLayout(ctx);
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
+
+        FrameLayout check = new FrameLayout(ctx);
+        ImageView tick = new ImageView(ctx);
+        tick.setImageResource(R.drawable.ic_check);
+        tick.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        check.addView(tick, new FrameLayout.LayoutParams(Ui.dp(ctx, 16), Ui.dp(ctx, 16), Gravity.CENTER));
+        LinearLayout.LayoutParams chlp = new LinearLayout.LayoutParams(Ui.dp(ctx, 24), Ui.dp(ctx, 24));
+        chlp.setMarginEnd(Ui.dp(ctx, 12));
+        top.addView(check, chlp);
 
         View dot = new View(ctx);
         LinearLayout.LayoutParams dlp0 = new LinearLayout.LayoutParams(Ui.dp(ctx, 9), Ui.dp(ctx, 9));
@@ -109,12 +175,23 @@ public final class RecordingAdapter extends RecyclerView.Adapter<RecordingAdapte
         wlp.topMargin = Ui.dp(ctx, 10);
         card.addView(wave, wlp);
 
-        return new VH(card, dot, title, star, duration, meta, wave);
+        return new VH(card, check, tick, dot, title, star, duration, meta, wave);
     }
 
     @Override
     public void onBindViewHolder(@NonNull VH h, int position) {
         Recording r = items.get(position);
+        boolean isSel = selecting && selected.contains(r.id);
+
+        if (isSel) {
+            h.itemView.setBackground(Ui.round(Ui.attrColor(ctx, R.attr.cAccentSoft), Ui.dp(ctx, 18), Ui.attrColor(ctx, R.attr.cAccent), Ui.dp(ctx, 2)));
+        } else {
+            h.itemView.setBackgroundResource(R.drawable.bg_card);
+        }
+        h.check.setVisibility(selecting ? View.VISIBLE : View.GONE);
+        h.check.setBackgroundResource(isSel ? R.drawable.bg_check_on : R.drawable.bg_check_off);
+        h.tick.setVisibility(isSel ? View.VISIBLE : View.INVISIBLE);
+
         h.title.setText(r.title);
         h.star.setVisibility(r.favorite && !trashMode ? View.VISIBLE : View.GONE);
         if (r.label > 0 && !trashMode) {
@@ -142,12 +219,19 @@ public final class RecordingAdapter extends RecyclerView.Adapter<RecordingAdapte
         if (!r.markers.isEmpty()) sb.append("  \u00B7  ").append(ctx.getResources().getString(R.string.markers_short, r.markers.size()));
         h.meta.setText(sb);
         h.wave.setPeaks(r.peaksAsFloat());
+
         h.itemView.setOnClickListener(v -> {
-            if (trashMode) listener.onMenu(r);
-            else listener.onOpen(r);
+            int pos = h.getBindingAdapterPosition();
+            if (pos == RecyclerView.NO_POSITION) return;
+            if (selecting) toggle(items.get(pos), pos);
+            else listener.onOpen(items.get(pos));
         });
         h.itemView.setOnLongClickListener(v -> {
-            listener.onMenu(r);
+            int pos = h.getBindingAdapterPosition();
+            if (pos == RecyclerView.NO_POSITION) return true;
+            v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+            if (!selecting) startSelection(items.get(pos).id);
+            else toggle(items.get(pos), pos);
             return true;
         });
     }
@@ -158,6 +242,8 @@ public final class RecordingAdapter extends RecyclerView.Adapter<RecordingAdapte
     }
 
     static final class VH extends RecyclerView.ViewHolder {
+        final FrameLayout check;
+        final ImageView tick;
         final View dot;
         final TextView title;
         final ImageView star;
@@ -165,8 +251,11 @@ public final class RecordingAdapter extends RecyclerView.Adapter<RecordingAdapte
         final TextView meta;
         final WaveformView wave;
 
-        VH(View itemView, View dot, TextView title, ImageView star, TextView duration, TextView meta, WaveformView wave) {
+        VH(View itemView, FrameLayout check, ImageView tick, View dot, TextView title, ImageView star,
+           TextView duration, TextView meta, WaveformView wave) {
             super(itemView);
+            this.check = check;
+            this.tick = tick;
             this.dot = dot;
             this.title = title;
             this.star = star;

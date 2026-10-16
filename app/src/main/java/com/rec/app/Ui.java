@@ -282,4 +282,48 @@ public final class Ui {
         v.setLayoutParams(new LinearLayout.LayoutParams(dp(c, sizeDp), dp(c, sizeDp)));
         return v;
     }
+
+    public static void shareMany(Context c, java.util.List<Recording> list) {
+        if (list.isEmpty()) return;
+        if (list.size() == 1) {
+            share(c, list.get(0));
+            return;
+        }
+        java.util.ArrayList<android.net.Uri> uris = new java.util.ArrayList<>();
+        for (Recording r : list) uris.add(Repo.uri(c, r));
+        Intent i = new Intent(Intent.ACTION_SEND_MULTIPLE);
+        i.setType("audio/mp4");
+        i.putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris);
+        ClipData clip = ClipData.newRawUri(list.get(0).title, uris.get(0));
+        for (int k = 1; k < uris.size(); k++) clip.addItem(new ClipData.Item(uris.get(k)));
+        i.setClipData(clip);
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        c.startActivity(Intent.createChooser(i, c.getString(R.string.action_share)));
+    }
+
+    public static LinearLayout action(Context c, int iconRes, int labelRes, int tint) {
+        LinearLayout l = new LinearLayout(c);
+        l.setOrientation(LinearLayout.VERTICAL);
+        l.setGravity(Gravity.CENTER);
+        l.setBackgroundResource(R.drawable.bg_row_flat);
+        l.setClickable(true);
+        l.setFocusable(true);
+        l.setContentDescription(c.getString(labelRes));
+        ImageView icon = new ImageView(c);
+        icon.setImageResource(iconRes);
+        icon.setImageTintList(ColorStateList.valueOf(tint));
+        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        l.addView(icon, new LinearLayout.LayoutParams(dp(c, 24), dp(c, 24)));
+        TextView t = new TextView(c);
+        t.setText(labelRes);
+        t.setTextSize(11);
+        t.setGravity(Gravity.CENTER);
+        t.setSingleLine(true);
+        t.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        t.setTextColor(tint);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        tlp.topMargin = dp(c, 4);
+        l.addView(t, tlp);
+        return l;
+    }
 }

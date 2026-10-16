@@ -28,6 +28,10 @@ public final class Store {
     private static final String K_SPEED = "speed";
     private static final String K_INDEX = "title_index";
     private static final String K_NOTIF_ASKED = "notif_asked";
+    private static final String K_NOISE = "noise_reduction";
+    private static final String K_AGC = "auto_gain";
+    private static final String K_LOWCUT = "low_cut";
+    private static final String K_GAIN = "mic_gain";
 
     private final SharedPreferences prefs;
 
@@ -83,4 +87,21 @@ public final class Store {
 
     public boolean getNotifAsked() { return prefs.getBoolean(K_NOTIF_ASKED, false); }
     public void setNotifAsked(boolean b) { prefs.edit().putBoolean(K_NOTIF_ASKED, b).apply(); }
+
+    public boolean getNoise() { return prefs.getBoolean(K_NOISE, true); }
+    public void setNoise(boolean b) { prefs.edit().putBoolean(K_NOISE, b).apply(); }
+
+    public boolean getAgc() { return prefs.getBoolean(K_AGC, false); }
+    public void setAgc(boolean b) { prefs.edit().putBoolean(K_AGC, b).apply(); }
+
+    public boolean getLowCut() { return prefs.getBoolean(K_LOWCUT, true); }
+    public void setLowCut(boolean b) { prefs.edit().putBoolean(K_LOWCUT, b).apply(); }
+
+    public int getGainIndex() { return prefs.getInt(K_GAIN, 0); }
+    public void setGainIndex(int i) { prefs.edit().putInt(K_GAIN, i).apply(); }
+
+    public static int gainDb(int index) {
+        int[] db = {0, 3, 6, 9};
+        return db[Math.max(0, Math.min(db.length - 1, index))];
+    }
 }

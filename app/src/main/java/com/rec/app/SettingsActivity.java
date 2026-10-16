@@ -66,6 +66,16 @@ public final class SettingsActivity extends AppCompatActivity {
         addRow(g1, toggleRow(R.drawable.ic_set_screen, R.color.warn, R.string.settings_keep_awake, store.getKeepAwake(), checked -> store.setKeepAwake(checked)));
         addRow(g1, toggleRow(R.drawable.ic_set_haptic, R.color.violet, R.string.settings_haptic, store.getHaptic(), checked -> store.setHaptic(checked)));
 
+        footer(list, R.string.footer_recording);
+
+        LinearLayout ga = group(list, R.string.group_audio);
+        addRow(ga, toggleRow(R.drawable.ic_set_denoise, R.color.teal, R.string.settings_noise, store.getNoise(), checked -> store.setNoise(checked)));
+        addRow(ga, toggleRow(R.drawable.ic_set_agc, R.color.indigo, R.string.settings_agc, store.getAgc(), checked -> store.setAgc(checked)));
+        addRow(ga, toggleRow(R.drawable.ic_set_lowcut, R.color.info, R.string.settings_lowcut, store.getLowCut(), checked -> store.setLowCut(checked)));
+        final String[] gains = getResources().getStringArray(R.array.gain_options);
+        addRow(ga, choiceRow(R.drawable.ic_set_gain, R.color.warn, R.string.settings_gain, gains, () -> store.getGainIndex(), i -> store.setGainIndex(i)));
+        footer(list, R.string.footer_audio);
+
         LinearLayout g2 = group(list, R.string.group_playback);
         final int[] skipVals = {5, 10, 15, 30};
         final String[] skipOpts = new String[skipVals.length];
@@ -91,6 +101,15 @@ public final class SettingsActivity extends AppCompatActivity {
         LinearLayout g = Ui.card(this);
         parent.addView(g, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return g;
+    }
+
+    private void footer(LinearLayout parent, int textRes) {
+        TextView t = new TextView(this);
+        t.setText(textRes);
+        t.setTextSize(13);
+        t.setTextColor(Ui.attrColor(this, R.attr.cTextHint));
+        t.setPadding(Ui.dp(this, 16), Ui.dp(this, 8), Ui.dp(this, 16), 0);
+        parent.addView(t);
     }
 
     private void addRow(LinearLayout group, View row) {

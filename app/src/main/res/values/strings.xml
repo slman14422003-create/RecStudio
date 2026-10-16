@@ -149,4 +149,32 @@
         <item>Meeting</item>
         <item>Ideas</item>
     </string-array>
+
+    <string name="recordings_title">Recordings</string>
+    <string name="action_close">Close</string>
+    <string name="action_star_short">Star</string>
+    <string name="select">Select</string>
+    <string name="select_all">Select all</string>
+    <string name="deselect_all">Deselect all</string>
+    <string name="selected_fmt">%1$d selected</string>
+    <string name="bulk_delete_message">%1$d recordings will be moved to Recently Deleted.</string>
+    <string name="bulk_forever_message">%1$d recordings will be deleted permanently and cannot be recovered.</string>
+    <string name="restored_fmt">%1$d recordings restored</string>
+
+    <string name="too_loud">Too loud, move the microphone away</string>
+    <string name="info_denoise">Noise reduction</string>
+
+    <string name="group_audio">Audio enhancement</string>
+    <string name="settings_noise">Noise reduction</string>
+    <string name="settings_agc">Auto gain control</string>
+    <string name="settings_lowcut">Low-cut filter</string>
+    <string name="settings_gain">Microphone gain</string>
+    <string name="footer_recording">Higher quality gives clearer audio but larger files.</string>
+    <string name="footer_audio">Noise reduction and auto gain use the phone\'s built-in processing when available. The low-cut filter removes rumble, wind and handling noise below 80 Hz. Raise the gain only for quiet sources, and keep an eye on the level meter while recording.</string>
+    <string-array name="gain_options">
+        <item>0 dB</item>
+        <item>+3 dB</item>
+        <item>+6 dB</item>
+        <item>+9 dB</item>
+    </string-array>
 </resources>
