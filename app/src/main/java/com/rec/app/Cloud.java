@@ -17,7 +17,7 @@ import java.util.UUID;
 
 final class Cloud {
 
-    static final String BASE = "https://rec-ai.YOUR-SUBDOMAIN.workers.dev/";
+    static final String BASE = "https://snowy-field-1de7.slman2233445566y.workers.dev/";
     static final String STT_MODEL = "whisper-large-v3-turbo";
     static final String LLM_MODEL = "llama-3.3-70b";
     static final String KEYS_URL = "https://dash.cloudflare.com/";
