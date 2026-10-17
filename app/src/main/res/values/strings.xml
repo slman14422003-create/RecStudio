@@ -193,7 +193,7 @@
 
     <string name="speech_title">Speech engine</string>
     <string name="speech_intro_title">Offline speech to text</string>
-    <string name="speech_intro">Download one speech model once, then transcribe your recordings with no internet connection. The engine is Vosk, a free open-source recogniser that runs entirely on this phone, and your audio never leaves it.</string>
+    <string name="speech_intro">Download one speech model once, then transcribe your recordings with no internet connection. Two free open-source engines run entirely on this phone: Vosk (fast, light) and Whisper through sherpa-onnx (more accurate, handles Arabic dialects better). Your audio never leaves the device.</string>
     <string name="speech_models">Models</string>
     <string name="speech_active">In use</string>
     <string name="speech_size_fmt">About %1$d MB</string>
@@ -208,7 +208,7 @@
     <string name="speech_download_title">Download speech model</string>
     <string name="speech_download_message">About %1$d MB will be downloaded once. This is the only time the app needs the internet; afterwards everything works offline. Wi-Fi is recommended.</string>
     <string name="speech_ready">Speech engine is ready</string>
-    <string name="speech_footer">Models come from the free Vosk model collection. If a download is interrupted it resumes where it stopped.</string>
+    <string name="speech_footer">Models come from the free Vosk collection and the sherpa-onnx Whisper collection. If a download is interrupted it resumes where it stopped.</string>
     <string name="speech_setup">Set up speech engine</string>
 
     <string name="err_download">Download failed. Check your connection and try again; progress is kept.</string>
@@ -246,5 +246,8 @@
         <item>German · Small</item>
         <item>Turkish · Small</item>
         <item>Russian · Small</item>
+        <item>Arabic · Whisper Small (MSA + dialects)</item>
+        <item>Arabic · Whisper Medium (MSA + dialects)</item>
+        <item>Arabic · Whisper Turbo (MSA + dialects, most accurate)</item>
     </string-array>
 </resources>

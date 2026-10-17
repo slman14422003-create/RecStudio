@@ -18,6 +18,11 @@ import androidx.core.content.ContextCompat;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import com.k2fsa.sherpa.onnx.OfflineModelConfig;
+import com.k2fsa.sherpa.onnx.OfflineRecognizer;
+import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig;
+import com.k2fsa.sherpa.onnx.OfflineStream;
+import com.k2fsa.sherpa.onnx.OfflineWhisperModelConfig;
 import org.vosk.LibVosk;
 import org.vosk.LogLevel;
 import org.vosk.Model;
@@ -63,6 +68,8 @@ public final class SpeechService extends Service {
 
     private static Model cachedModel;
     private static String cachedPath;
+    private static OfflineRecognizer cachedRec;
+    private static String cachedRecPath;
 
     private long lastNotify;
 
@@ -103,7 +110,8 @@ public final class SpeechService extends Service {
     }
 
     public static synchronized void releaseModel() {
-        if (cachedModel != null && jobType == JOB_NONE) {
+        if (jobType != JOB_NONE) return;
+        if (cachedModel != null) {
             try {
                 cachedModel.close();
             } catch (Exception ignored) {
@@ -111,6 +119,41 @@ public final class SpeechService extends Service {
             cachedModel = null;
             cachedPath = null;
         }
+        closeRecognizer();
+    }
+
+    private static synchronized void closeRecognizer() {
+        if (cachedRec != null) {
+            try {
+                cachedRec.release();
+            } catch (Throwable ignored) {
+            }
+            cachedRec = null;
+            cachedRecPath = null;
+        }
+    }
+
+    private static synchronized OfflineRecognizer recognizer(File dir, String lang) {
+        String key = dir.getAbsolutePath() + "|" + lang;
+        if (cachedRec != null && key.equals(cachedRecPath)) return cachedRec;
+        closeRecognizer();
+        OfflineWhisperModelConfig w = new OfflineWhisperModelConfig();
+        w.setEncoder(new File(dir, Models.WHISPER_ENCODER).getAbsolutePath());
+        w.setDecoder(new File(dir, Models.WHISPER_DECODER).getAbsolutePath());
+        w.setLanguage(lang);
+        w.setTask("transcribe");
+        OfflineModelConfig mc = new OfflineModelConfig();
+        mc.setWhisper(w);
+        mc.setTokens(new File(dir, Models.WHISPER_TOKENS).getAbsolutePath());
+        mc.setNumThreads(Math.max(2, Math.min(4, Runtime.getRuntime().availableProcessors() / 2)));
+        mc.setDebug(false);
+        mc.setProvider("cpu");
+        mc.setModelType("whisper");
+        OfflineRecognizerConfig rc = new OfflineRecognizerConfig();
+        rc.setModelConfig(mc);
+        cachedRec = new OfflineRecognizer(null, rc);
+        cachedRecPath = key;
+        return cachedRec;
     }
 
     private static synchronized Model model(String path) throws IOException {
@@ -264,6 +307,7 @@ public final class SpeechService extends Service {
                 cachedPath = null;
             }
         }
+        closeRecognizer();
     }
 
     private static final class Pipe {
@@ -321,6 +365,10 @@ public final class SpeechService extends Service {
         int mi = Models.currentIndex(this, store);
         if (mi < 0) throw new IOException("no speech model");
         Models.Spec spec = Models.ALL[mi];
+        if (spec.engine == Models.ENGINE_WHISPER) {
+            transcribeWhisper(id, rec, store, spec);
+            return;
+        }
         Model model = model(Models.dir(this, spec).getAbsolutePath());
 
         File audio = rec.file(this);
@@ -344,6 +392,144 @@ public final class SpeechService extends Service {
             feedRecognizer(rcg, pipe.pcm, c, t, lastEnd);
             collect(t, rcg.getFinalResult(), lastEnd);
         }
+        Repo.saveTranscript(this, id, t);
+        setProgress(1f);
+    }
+
+    private static final int W_MAX = 26 * Voice16k.RATE;
+    private static final int W_MIN = 6 * Voice16k.RATE;
+    private static final int W_TAIL = (int) (0.6f * Voice16k.RATE);
+    private static final float W_SILENCE = 0.010f;
+    private static final float W_SKIP = 0.004f;
+
+    private final class Chunker {
+        final OfflineRecognizer rec;
+        final Transcript t;
+        float[] buf = new float[W_MAX + 4 * Voice16k.RATE];
+        int len;
+        long base;
+        String prev = "";
+
+        Chunker(OfflineRecognizer rec, Transcript t) {
+            this.rec = rec;
+            this.t = t;
+        }
+
+        void add(short[] pcm, int n) {
+            if (n <= 0) return;
+            if (len + n > buf.length) buf = java.util.Arrays.copyOf(buf, Math.max(buf.length * 2, len + n));
+            for (int i = 0; i < n; i++) buf[len + i] = pcm[i] / 32768f;
+            len += n;
+            drain(false);
+        }
+
+        void finish() {
+            drain(true);
+        }
+
+        private void drain(boolean last) {
+            while (len > 0 && !cancel) {
+                int cut = -1;
+                if (len >= W_MAX) cut = quietest(len - 5 * Voice16k.RATE, len);
+                else if (len >= W_MIN && rms(len - W_TAIL, len) < W_SILENCE) cut = len;
+                else if (last) cut = len;
+                if (cut <= 0) break;
+                emit(cut);
+                int rest = len - cut;
+                if (rest > 0) System.arraycopy(buf, cut, buf, 0, rest);
+                len = rest;
+                base += cut;
+            }
+        }
+
+        private float rms(int from, int to) {
+            if (to <= from) return 0f;
+            double sum = 0;
+            for (int i = from; i < to; i++) sum += buf[i] * buf[i];
+            return (float) Math.sqrt(sum / (to - from));
+        }
+
+        private int quietest(int from, int to) {
+            int win = Voice16k.RATE / 5;
+            int best = to;
+            float bestV = Float.MAX_VALUE;
+            for (int p = Math.max(win, from); p + win <= to; p += win / 2) {
+                float v = rms(p, p + win);
+                if (v < bestV) {
+                    bestV = v;
+                    best = p + win / 2;
+                }
+            }
+            return best;
+        }
+
+        private void emit(int cut) {
+            if (rms(0, cut) < W_SKIP) return;
+            OfflineStream st = rec.createStream();
+            String text;
+            try {
+                st.acceptWaveform(java.util.Arrays.copyOf(buf, cut), Voice16k.RATE);
+                rec.decode(st);
+                text = rec.getResult(st).getText();
+            } finally {
+                st.release();
+            }
+            text = text == null ? "" : text.trim();
+            if (text.isEmpty() || text.equals(prev)) return;
+            prev = text;
+            long startMs = base * 1000L / Voice16k.RATE;
+            long endMs = (base + cut) * 1000L / Voice16k.RATE;
+            split(text, startMs, endMs);
+        }
+
+        private void split(String text, long startMs, long endMs) {
+            ArrayList<String> parts = new ArrayList<>();
+            StringBuilder cur = new StringBuilder();
+            for (int i = 0; i < text.length(); i++) {
+                char ch = text.charAt(i);
+                cur.append(ch);
+                boolean stop = ch == '.' || ch == '!' || ch == '?' || ch == '\u061F' || ch == '\u06D4';
+                if (stop && cur.length() > 12) {
+                    parts.add(cur.toString().trim());
+                    cur.setLength(0);
+                }
+            }
+            if (cur.toString().trim().length() > 0) parts.add(cur.toString().trim());
+            if (parts.isEmpty()) return;
+            long span = Math.max(1, endMs - startMs);
+            int total = 0;
+            for (String p : parts) total += p.length();
+            long at = startMs;
+            for (int i = 0; i < parts.size(); i++) {
+                String p = parts.get(i);
+                long en = i == parts.size() - 1 ? endMs : at + span * p.length() / Math.max(1, total);
+                t.segs.add(new Transcript.Seg(at, en, p));
+                at = en;
+            }
+        }
+    }
+
+    private void transcribeWhisper(String id, Recording rec, Store store, Models.Spec spec) throws Exception {
+        OfflineRecognizer r = recognizer(Models.dir(this, spec), spec.lang);
+        File audio = rec.file(this);
+        long totalUs = PcmDecoder.durationUs(audio);
+        if (totalUs <= 0) totalUs = Math.max(1, rec.durationMs) * 1000L;
+        final long total = totalUs;
+
+        Transcript t = new Transcript();
+        t.lang = spec.lang;
+        final Pipe pipe = new Pipe(store.getClean() ? new Enhancer(store.getCleanLevel(), true) : null);
+        final Chunker chunker = new Chunker(r, t);
+        PcmDecoder.decode(audio, (data, n, rate, ch, pts) -> {
+            int c = pipe.feed(data, n, rate, ch);
+            chunker.add(pipe.pcm, c);
+            setProgress(Math.min(0.99f, pts / (float) total));
+        }, () -> cancel);
+        if (cancel) throw new Models.CancelledException();
+        int c = pipe.flush();
+        chunker.add(pipe.pcm, c);
+        chunker.finish();
+        if (cancel) throw new Models.CancelledException();
         Repo.saveTranscript(this, id, t);
         setProgress(1f);
     }

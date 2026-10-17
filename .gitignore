@@ -10,3 +10,4 @@ build/
 local.properties
 *.jks
 keystore.properties
+/app/libs/

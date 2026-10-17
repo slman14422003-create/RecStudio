@@ -4,3 +4,5 @@
 -keepclassmembers class * extends com.sun.jna.* { public *; }
 -dontwarn java.awt.**
 -dontwarn com.sun.jna.**
+-keep class com.k2fsa.sherpa.onnx.** { *; }
+-dontwarn com.k2fsa.sherpa.onnx.**

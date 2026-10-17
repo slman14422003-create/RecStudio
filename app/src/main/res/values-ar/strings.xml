@@ -193,7 +193,7 @@
 
     <string name="speech_title">محرك الكلام</string>
     <string name="speech_intro_title">تحويل الكلام إلى نص بدون إنترنت</string>
-    <string name="speech_intro">نزّل نموذج كلام واحدًا مرة واحدة، ثم حوّل تسجيلاتك إلى نص بدون اتصال بالإنترنت. المحرك هو Vosk، محرك تعرّف مجاني ومفتوح المصدر يعمل بالكامل على هذا الهاتف، ولا يغادر صوتك الجهاز أبدًا.</string>
+    <string name="speech_intro">نزّل نموذج كلام واحدًا مرة واحدة، ثم حوّل تسجيلاتك إلى نص بدون اتصال بالإنترنت. يعمل محركان مجانيان ومفتوحا المصدر بالكامل على هذا الهاتف: Vosk (سريع وخفيف) وWhisper عبر sherpa-onnx (أدق ويتعامل مع اللهجات العربية بشكل أفضل). ولا يغادر صوتك الجهاز أبدًا.</string>
     <string name="speech_models">النماذج</string>
     <string name="speech_active">قيد الاستخدام</string>
     <string name="speech_size_fmt">حوالي %1$d ميغابايت</string>
@@ -208,7 +208,7 @@
     <string name="speech_download_title">تنزيل نموذج الكلام</string>
     <string name="speech_download_message">سيتم تنزيل حوالي %1$d ميغابايت مرة واحدة. هذه هي المرة الوحيدة التي يحتاج فيها التطبيق إلى الإنترنت، وبعدها يعمل كل شيء بدونه. يُفضّل استخدام الواي فاي.</string>
     <string name="speech_ready">محرك الكلام جاهز</string>
-    <string name="speech_footer">النماذج من مجموعة نماذج Vosk المجانية. إن انقطع التنزيل يُكمل من حيث توقف.</string>
+    <string name="speech_footer">النماذج من مجموعة Vosk المجانية ومجموعة Whisper الخاصة بـ sherpa-onnx. إن انقطع التنزيل يُكمل من حيث توقف.</string>
     <string name="speech_setup">إعداد محرك الكلام</string>
 
     <string name="err_download">فشل التنزيل. تحقق من الاتصال وحاول مرة أخرى؛ التقدم محفوظ.</string>
@@ -246,5 +246,8 @@
         <item>ألماني · صغير</item>
         <item>تركي · صغير</item>
         <item>روسي · صغير</item>
+        <item>عربي · Whisper صغير (فصحى ولهجات)</item>
+        <item>عربي · Whisper متوسط (فصحى ولهجات)</item>
+        <item>عربي · Whisper تيربو (فصحى ولهجات، الأدق)</item>
     </string-array>
 </resources>

@@ -18,6 +18,22 @@ if (System.getenv('REQUIRE_RELEASE_SIGNING') == 'true' && !hasSigning) {
     throw new GradleException('Release signing is required but the signing variables are missing')
 }
 
+def sherpaVersion = '1.13.4'
+def sherpaAar = file("libs/sherpa-onnx-${sherpaVersion}.aar")
+
+tasks.register('fetchSherpa') {
+    outputs.file(sherpaAar)
+    doLast {
+        if (!sherpaAar.exists() || sherpaAar.length() == 0) {
+            sherpaAar.parentFile.mkdirs()
+            def part = new File(sherpaAar.parentFile, sherpaAar.name + '.part')
+            def url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/v${sherpaVersion}/sherpa-onnx-${sherpaVersion}.aar"
+            new URL(url).withInputStream { i -> part.withOutputStream { o -> o << i } }
+            if (!part.renameTo(sherpaAar)) throw new GradleException('Could not store the sherpa-onnx archive')
+        }
+    }
+}
+
 android {
     namespace = 'com.rec.app'
     compileSdk = 36
@@ -61,6 +77,12 @@ android {
         }
     }
 
+    packaging {
+        jniLibs {
+            pickFirsts += ['**/libc++_shared.so', '**/libonnxruntime.so']
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -81,4 +103,5 @@ dependencies {
     implementation 'androidx.core:core:1.13.1'
     implementation 'net.java.dev.jna:jna:5.13.0@aar'
     implementation 'com.alphacephei:vosk-android:0.3.47'
+    implementation files(sherpaAar).builtBy('fetchSherpa')
 }
