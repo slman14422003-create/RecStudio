@@ -246,8 +246,14 @@ public final class RecorderService extends Service {
             rate = 16000;
         }
 
+        final int focus = store.getFocus();
         boolean noise = store.getNoise();
         boolean agc = store.getAgc();
+        if (focus > 0) {
+            noise = true;
+            agc = true;
+            if (channels == 1) source = MediaRecorder.AudioSource.VOICE_RECOGNITION;
+        }
         Session s = open(out, source, channels, rate, bits, noise, agc);
         if (s == null && channels == 2) s = open(out, source, 1, rate, bits / 2, noise, agc);
         if (s == null) s = open(out, MediaRecorder.AudioSource.MIC, 1, 44100, 128000, noise, agc);
@@ -271,7 +277,7 @@ public final class RecorderService extends Service {
         final float gain = (float) Math.pow(10.0, Store.gainDb(store.getGainIndex()) / 20.0);
         final boolean lowCut = store.getLowCut();
         final Session running = s;
-        worker = new Thread(() -> capture(running, gain, lowCut), "rec-capture");
+        worker = new Thread(() -> capture(running, gain, lowCut, focus), "rec-capture");
         worker.start();
         handler.removeCallbacks(watchdog);
         handler.postDelayed(watchdog, WATCHDOG_MS);
@@ -319,13 +325,14 @@ public final class RecorderService extends Service {
         }
     }
 
-    private void capture(Session s, float gain, boolean lowCut) {
+    private void capture(Session s, float gain, boolean lowCut, int focus) {
         int ch = s.channels;
         short[] buf = new short[(s.rate / 20) * ch];
         float[] px = new float[ch];
         float[] py = new float[ch];
         double rc = 1.0 / (2.0 * Math.PI * 80.0);
         float alpha = (float) (rc / (rc + 1.0 / s.rate));
+        LiveVoice voice = focus > 0 ? new LiveVoice(s.rate, ch, focus) : null;
         boolean recording = false;
         long framesFed = 0;
         boolean ok = true;
@@ -352,6 +359,7 @@ public final class RecorderService extends Service {
                 }
                 if (n == 0) continue;
                 int peak = process(buf, n, ch, gain, lowCut, alpha, px, py);
+                if (voice != null) peak = voice.process(buf, n);
                 framesFed = feed(s, buf, n, framesFed);
                 framesWritten = framesFed;
                 final float level = toLevel(peak);

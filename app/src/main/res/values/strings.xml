@@ -270,4 +270,10 @@
     <string name="conn_fail">Could not connect to the Worker</string>
     <string name="fix_failed">Smart fix failed</string>
     <string name="cloud_fallback">Cloud unavailable, transcribed on this device instead</string>
+    <string name="settings_focus">Voice focus</string>
+    <string-array name="focus_options">
+        <item>Off</item>
+        <item>Voice focus</item>
+        <item>Far speaker (strong)</item>
+    </string-array>
 </resources>

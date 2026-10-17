@@ -6,7 +6,6 @@ final class Enhancer {
     static final int H = 256;
     private static final int BINS = N / 2 + 1;
     private static final int SUB_FRAMES = 12;
-    private static final int SUB_WINDOWS = 8;
     private static final float BIAS = 1.7f;
     private static final float BETA = 0.92f;
 
@@ -20,7 +19,8 @@ final class Enhancer {
     private final float[] noise = new float[BINS];
     private final float[] prevClean = new float[BINS];
     private final float[] subMin = new float[BINS];
-    private final float[][] subWin = new float[SUB_WINDOWS][BINS];
+    private final int subWindows;
+    private final float[][] subWin;
     private final float[] gain = new float[BINS];
     private final float[] gainSmooth = new float[BINS];
 
@@ -36,7 +36,13 @@ final class Enhancer {
     private float agcGain = 1f;
 
     Enhancer(int level, boolean normalize) {
+        this(level, normalize, 16000);
+    }
+
+    Enhancer(int level, boolean normalize, int rate) {
         this.normalize = normalize;
+        this.subWindows = Math.max(8, Math.round(rate * 1.5f / H / SUB_FRAMES));
+        this.subWin = new float[subWindows][BINS];
         if (level <= 0) {
             gMin = 0.35f;
             over = 1.0f;
@@ -85,7 +91,7 @@ final class Enhancer {
                 smooth[k] = p;
                 noise[k] = p * BIAS;
                 subMin[k] = p;
-                for (int u = 0; u < SUB_WINDOWS; u++) subWin[u][k] = p;
+                for (int u = 0; u < subWindows; u++) subWin[u][k] = p;
             }
             smooth[k] = 0.85f * smooth[k] + 0.15f * p;
             if (smooth[k] < subMin[k]) subMin[k] = smooth[k];
@@ -101,10 +107,10 @@ final class Enhancer {
                 subWin[subIdx][k] = subMin[k];
                 subMin[k] = smooth[k];
                 float m = subWin[0][k];
-                for (int u = 1; u < SUB_WINDOWS; u++) if (subWin[u][k] < m) m = subWin[u][k];
+                for (int u = 1; u < subWindows; u++) if (subWin[u][k] < m) m = subWin[u][k];
                 noise[k] = m * BIAS;
             }
-            subIdx = (subIdx + 1) % SUB_WINDOWS;
+            subIdx = (subIdx + 1) % subWindows;
         }
 
         for (int k = 0; k < BINS; k++) {

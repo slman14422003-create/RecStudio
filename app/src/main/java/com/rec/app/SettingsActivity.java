@@ -72,6 +72,8 @@ public final class SettingsActivity extends AppCompatActivity {
 
         LinearLayout ga = group(list, R.string.group_audio);
         addRow(ga, toggleRow(R.drawable.ic_set_denoise, R.color.teal, R.string.settings_noise, store.getNoise(), checked -> store.setNoise(checked)));
+        final String[] focusOpts = getResources().getStringArray(R.array.focus_options);
+        addRow(ga, choiceRow(R.drawable.ic_set_denoise, R.color.ok, R.string.settings_focus, focusOpts, () -> store.getFocus(), i -> store.setFocus(i)));
         addRow(ga, toggleRow(R.drawable.ic_set_agc, R.color.indigo, R.string.settings_agc, store.getAgc(), checked -> store.setAgc(checked)));
         addRow(ga, toggleRow(R.drawable.ic_set_lowcut, R.color.info, R.string.settings_lowcut, store.getLowCut(), checked -> store.setLowCut(checked)));
         final String[] gains = getResources().getStringArray(R.array.gain_options);

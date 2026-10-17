@@ -270,4 +270,10 @@
     <string name="conn_fail">تعذر الاتصال بالـ Worker</string>
     <string name="fix_failed">فشل التصحيح الذكي</string>
     <string name="cloud_fallback">تعذّر الاتصال بالسحابة، تم التفريغ على الجهاز بدلاً منها</string>
+    <string name="settings_focus">تركيز الصوت وعزل المحيط</string>
+    <string-array name="focus_options">
+        <item>إيقاف</item>
+        <item>تركيز على الصوت</item>
+        <item>متحدث بعيد (قوي)</item>
+    </string-array>
 </resources>
