@@ -261,4 +261,13 @@
         <item>Arabic · Whisper Turbo (MSA + dialects, most accurate)</item>
         <item>Online · Whisper Large v3 (free, most accurate)</item>
     </string-array>
+    <string name="summarize">Summarize</string>
+    <string name="summarizing">Summarizing…</string>
+    <string name="follow_text">Follow</string>
+    <string name="copy_line">Copy line</string>
+    <string name="edit_line">Edit line</string>
+    <string name="conn_ok">Connected to the Worker successfully</string>
+    <string name="conn_fail">Could not connect to the Worker</string>
+    <string name="fix_failed">Smart fix failed</string>
+    <string name="cloud_fallback">Cloud unavailable, transcribed on this device instead</string>
 </resources>

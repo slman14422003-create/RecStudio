@@ -297,7 +297,21 @@ public final class SpeechActivity extends AppCompatActivity {
     private void askKey(final int index) {
         Ui.editLines(this, R.string.speech_key_title, R.string.speech_key_hint, "", 1, v -> {
             store.setCloudKey(v);
-            if (!v.isEmpty()) store.setSpeechModel(index);
+            if (!v.isEmpty()) {
+                store.setSpeechModel(index);
+                final String k = v;
+                new Thread(() -> {
+                    String msg;
+                    try {
+                        Cloud.ping(k);
+                        msg = getString(R.string.conn_ok);
+                    } catch (Exception e) {
+                        msg = getString(R.string.conn_fail) + "\n" + Cloud.explain(e);
+                    }
+                    final String m = msg;
+                    runOnUiThread(() -> Toast.makeText(this, m, Toast.LENGTH_LONG).show());
+                }).start();
+            }
             SpeechService.releaseModel();
             signature = "";
             poll();

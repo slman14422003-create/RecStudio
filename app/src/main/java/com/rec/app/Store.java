@@ -39,6 +39,7 @@ public final class Store {
     private static final String K_VOCAB = "speech_vocab";
     private static final String K_CLOUD_KEY = "cloud_key";
     private static final String K_SMART_FIX = "cloud_fix";
+    private static final String K_FOLLOW = "tr_follow";
 
     private final SharedPreferences prefs;
 
@@ -132,4 +133,7 @@ public final class Store {
 
     public boolean getSmartFix() { return prefs.getBoolean(K_SMART_FIX, true); }
     public void setSmartFix(boolean b) { prefs.edit().putBoolean(K_SMART_FIX, b).apply(); }
+
+    public boolean getFollow() { return prefs.getBoolean(K_FOLLOW, false); }
+    public void setFollow(boolean b) { prefs.edit().putBoolean(K_FOLLOW, b).apply(); }
 }

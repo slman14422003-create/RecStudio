@@ -30,7 +30,67 @@ final class Cloud {
             + "If a line looks right, return it unchanged. "
             + "Reply with a JSON object {\"lines\": [...]} holding exactly the same number of strings in the same order.";
 
+    static volatile String lastError = "";
+    static volatile String fallbackNote = "";
+
     private Cloud() {}
+
+    static String explain(Exception e) {
+        String m = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+        return m.length() > 160 ? m.substring(0, 160) : m;
+    }
+
+    static void ping(String key) throws IOException {
+        HttpURLConnection con = (HttpURLConnection) new URL(BASE + "ping").openConnection();
+        con.setConnectTimeout(15000);
+        con.setReadTimeout(20000);
+        con.setRequestMethod("POST");
+        con.setDoOutput(true);
+        con.setRequestProperty("Authorization", "Bearer " + key);
+        con.setRequestProperty("Content-Type", "application/json");
+        try {
+            try (OutputStream out = con.getOutputStream()) {
+                out.write("{}".getBytes(StandardCharsets.UTF_8));
+            }
+            if (con.getResponseCode() != 200) throw failure(con);
+        } finally {
+            con.disconnect();
+        }
+    }
+
+    static String summarize(String key, String text) throws IOException {
+        if (text.length() > 24000) text = text.substring(0, 24000);
+        JSONObject req = new JSONObject();
+        try {
+            req.put("model", LLM_MODEL);
+            req.put("temperature", 0.2);
+            JSONArray msgs = new JSONArray();
+            msgs.put(new JSONObject().put("role", "system").put("content",
+                    "Summarize the Arabic transcript in the same language and dialect. Output: a one-line title, then a short summary of 2-3 sentences, then up to 6 bullet points of key points, then action items or dates if any. Do not invent facts."));
+            msgs.put(new JSONObject().put("role", "user").put("content", text));
+            req.put("messages", msgs);
+        } catch (JSONException e) {
+            throw new IOException("bad request");
+        }
+        HttpURLConnection con = (HttpURLConnection) new URL(BASE + "chat/completions").openConnection();
+        con.setConnectTimeout(15000);
+        con.setReadTimeout(120000);
+        con.setRequestMethod("POST");
+        con.setDoOutput(true);
+        con.setRequestProperty("Authorization", "Bearer " + key);
+        con.setRequestProperty("Content-Type", "application/json");
+        try {
+            try (OutputStream out = con.getOutputStream()) {
+                out.write(req.toString().getBytes(StandardCharsets.UTF_8));
+            }
+            if (con.getResponseCode() != 200) throw failure(con);
+            return new JSONObject(readAll(con.getInputStream())).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content").trim();
+        } catch (JSONException e) {
+            throw new IOException("bad response");
+        } finally {
+            con.disconnect();
+        }
+    }
 
     static byte[] wav(byte[] pcm, int len) {
         int rate = Voice16k.RATE;
@@ -91,6 +151,26 @@ final class Cloud {
     }
 
     static List<Transcript.Seg> transcribe(String key, byte[] wav, String lang, String prompt, long offsetMs) throws IOException {
+        IOException last = null;
+        for (int i = 0; i < 3; i++) {
+            try {
+                return transcribeOnce(key, wav, lang, prompt, offsetMs);
+            } catch (IOException e) {
+                last = e;
+                String m = String.valueOf(e.getMessage());
+                if (m.contains("401") || m.contains("413") || m.contains("400")) throw e;
+                try {
+                    Thread.sleep(2500L * (i + 1));
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
+        throw last;
+    }
+
+    private static List<Transcript.Seg> transcribeOnce(String key, byte[] wav, String lang, String prompt, long offsetMs) throws IOException {
         String boundary = "rec" + UUID.randomUUID().toString().replace("-", "");
         HttpURLConnection con = (HttpURLConnection) new URL(BASE + "audio/transcriptions").openConnection();
         con.setConnectTimeout(15000);

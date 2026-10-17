@@ -261,4 +261,13 @@
         <item>عربي · Whisper تيربو (فصحى ولهجات، الأدق)</item>
         <item>أونلاين · Whisper Large v3 (مجاني، الأدق)</item>
     </string-array>
+    <string name="summarize">تلخيص</string>
+    <string name="summarizing">جارٍ التلخيص…</string>
+    <string name="follow_text">تتبّع</string>
+    <string name="copy_line">نسخ السطر</string>
+    <string name="edit_line">تعديل السطر</string>
+    <string name="conn_ok">تم الاتصال بالـ Worker بنجاح</string>
+    <string name="conn_fail">تعذر الاتصال بالـ Worker</string>
+    <string name="fix_failed">فشل التصحيح الذكي</string>
+    <string name="cloud_fallback">تعذّر الاتصال بالسحابة، تم التفريغ على الجهاز بدلاً منها</string>
 </resources>

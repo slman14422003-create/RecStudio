@@ -145,7 +145,35 @@ public final class Models {
         f.delete();
     }
 
+    private static String proxyKey = "";
+
+    private static HttpURLConnection connect(String url, long have) throws IOException {
+        IOException first = null;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            boolean proxy = attempt == 1;
+            if (proxy && (proxyKey == null || proxyKey.isEmpty() || Cloud.BASE.contains("YOUR-SUBDOMAIN"))) break;
+            try {
+                String u = proxy ? Cloud.BASE + "dl?u=" + java.net.URLEncoder.encode(url, "UTF-8") : url;
+                HttpURLConnection con = (HttpURLConnection) new URL(u).openConnection();
+                con.setConnectTimeout(proxy ? 30000 : 12000);
+                con.setReadTimeout(30000);
+                con.setInstanceFollowRedirects(true);
+                con.setRequestProperty("User-Agent", "RecStudio");
+                if (proxy) con.setRequestProperty("Authorization", "Bearer " + proxyKey);
+                if (have > 0) con.setRequestProperty("Range", "bytes=" + have + "-");
+                int code = con.getResponseCode();
+                if (code == 200 || code == 206 || code == 416) return con;
+                con.disconnect();
+                first = new IOException("HTTP " + code);
+            } catch (IOException e) {
+                if (first == null) first = e;
+            }
+        }
+        throw first != null ? first : new IOException("connect failed");
+    }
+
     public static void download(Context c, Spec s, Progress sink, BooleanSupplier cancelled) throws IOException {
+        proxyKey = new Store(c).getCloudKey();
         if (s.engine == ENGINE_WHISPER) {
             downloadFiles(c, s, sink, cancelled);
             return;
@@ -156,12 +184,7 @@ public final class Models {
 
         if (!zip.exists()) {
             long have = part.exists() ? part.length() : 0;
-            HttpURLConnection con = (HttpURLConnection) new URL(s.url()).openConnection();
-            con.setConnectTimeout(20000);
-            con.setReadTimeout(30000);
-            con.setInstanceFollowRedirects(true);
-            con.setRequestProperty("User-Agent", "RecStudio");
-            if (have > 0) con.setRequestProperty("Range", "bytes=" + have + "-");
+            HttpURLConnection con = connect(s.url(), have);
             int code = con.getResponseCode();
             if (code == 416) {
                 part.renameTo(zip);
@@ -247,12 +270,7 @@ public final class Models {
 
     private static void fetchFile(String url, File part, File out, long[] done, long expected, Progress sink, BooleanSupplier cancelled) throws IOException {
         long have = part.exists() ? part.length() : 0;
-        HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
-        con.setConnectTimeout(20000);
-        con.setReadTimeout(30000);
-        con.setInstanceFollowRedirects(true);
-        con.setRequestProperty("User-Agent", "RecStudio");
-        if (have > 0) con.setRequestProperty("Range", "bytes=" + have + "-");
+        HttpURLConnection con = connect(url, have);
         int code = con.getResponseCode();
         if (code == 416) {
             if (!part.renameTo(out)) throw new IOException("rename failed");

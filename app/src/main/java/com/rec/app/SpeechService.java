@@ -358,6 +358,21 @@ public final class SpeechService extends Service {
         }
     }
 
+    private static int fallbackLocal(Context c, String lang) {
+        int best = -1;
+        int bestScore = -1;
+        for (int k = 0; k < Models.ALL.length; k++) {
+            Models.Spec sp = Models.ALL[k];
+            if (sp.engine == Models.ENGINE_CLOUD || !Models.installed(c, sp)) continue;
+            int score = (sp.lang.equals(lang) ? 100 : 0) + (sp.engine == Models.ENGINE_WHISPER ? 10 : 0) + Math.min(9, sp.mb / 120);
+            if (score > bestScore) {
+                bestScore = score;
+                best = k;
+            }
+        }
+        return best;
+    }
+
     private void transcribe(String id) throws Exception {
         Store store = new Store(this);
         Recording rec = Repo.get(this, id);
@@ -365,12 +380,28 @@ public final class SpeechService extends Service {
         int mi = Models.currentIndex(this, store);
         if (mi < 0) throw new IOException("no speech model");
         Models.Spec spec = Models.ALL[mi];
+        Cloud.fallbackNote = "";
+        if (spec.engine == Models.ENGINE_CLOUD) {
+            try {
+                transcribeCloud(id, rec, store, spec);
+                return;
+            } catch (Models.CancelledException e) {
+                throw e;
+            } catch (Exception e) {
+                if (cancel) throw e;
+                int fb = fallbackLocal(this, spec.lang);
+                if (fb < 0) throw e;
+                Cloud.fallbackNote = Cloud.explain(e);
+                setProgress(0f);
+                spec = Models.ALL[fb];
+            }
+        }
+        transcribeSpec(id, rec, store, spec);
+    }
+
+    private void transcribeSpec(String id, Recording rec, Store store, Models.Spec spec) throws Exception {
         if (spec.engine == Models.ENGINE_WHISPER) {
             transcribeWhisper(id, rec, store, spec);
-            return;
-        }
-        if (spec.engine == Models.ENGINE_CLOUD) {
-            transcribeCloud(id, rec, store, spec);
             return;
         }
         Model model = model(Models.dir(this, spec).getAbsolutePath());
@@ -543,8 +574,10 @@ public final class SpeechService extends Service {
     private static void applyFixes(Store store, Transcript t) {
         if (store.getSmartFix() && !store.getCloudKey().isEmpty() && !t.segs.isEmpty()) {
             try {
+                Cloud.lastError = "";
                 smartFix(store, t);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                Cloud.lastError = Cloud.explain(e);
             }
         }
         java.util.List<Vocab.Entry> entries = Vocab.parse(store.getVocab());

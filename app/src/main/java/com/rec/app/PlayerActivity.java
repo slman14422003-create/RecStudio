@@ -1,6 +1,7 @@
 package com.rec.app;
 
 import android.content.res.ColorStateList;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
@@ -12,7 +13,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.format.DateUtils;
+import android.os.SystemClock;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -69,6 +72,11 @@ public final class PlayerActivity extends AppCompatActivity {
     private Transcript transcript;
     private final List<TextView> segTexts = new ArrayList<>();
     private int highlighted = -1;
+    private ScrollView mainScroll;
+    private TextView liveCaption;
+    private final List<View> segRows = new ArrayList<>();
+    private long lastUserScroll;
+    private boolean summarizing;
     private long seenDone;
     private long seenError;
     private boolean lastBusyHere;
@@ -195,6 +203,11 @@ public final class PlayerActivity extends AppCompatActivity {
 
         ScrollView scroll = new ScrollView(this);
         scroll.setVerticalScrollBarEnabled(false);
+        mainScroll = scroll;
+        scroll.setOnTouchListener((v, ev) -> {
+            if (ev.getAction() == MotionEvent.ACTION_DOWN || ev.getAction() == MotionEvent.ACTION_MOVE) lastUserScroll = SystemClock.uptimeMillis();
+            return false;
+        });
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(0, 0, 0, dp(24));
@@ -302,6 +315,19 @@ public final class PlayerActivity extends AppCompatActivity {
 
         pillScroll.addView(pills, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         content.addView(pillScroll);
+
+        liveCaption = new TextView(this);
+        liveCaption.setTextSize(19);
+        liveCaption.setLineSpacing(0, 1.18f);
+        liveCaption.setGravity(Gravity.CENTER);
+        liveCaption.setMinLines(2);
+        liveCaption.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        liveCaption.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG);
+        liveCaption.setTextColor(c(R.attr.cTextPrimary));
+        liveCaption.setVisibility(View.GONE);
+        LinearLayout.LayoutParams capLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        capLp.setMargins(dp(24), dp(16), dp(24), dp(4));
+        content.addView(liveCaption, capLp);
 
         markersCard = new LinearLayout(this);
         markersCard.setOrientation(LinearLayout.VERTICAL);
@@ -601,6 +627,14 @@ public final class PlayerActivity extends AppCompatActivity {
                     lastBusyHere = false;
                     refreshTranscript();
                     Toast.makeText(this, R.string.notif_done_transcribe, Toast.LENGTH_SHORT).show();
+                    if (!Cloud.fallbackNote.isEmpty()) {
+                        Toast.makeText(this, getString(R.string.cloud_fallback) + "\n" + Cloud.fallbackNote, Toast.LENGTH_LONG).show();
+                        Cloud.fallbackNote = "";
+                    }
+                    if (!Cloud.lastError.isEmpty()) {
+                        Toast.makeText(this, getString(R.string.fix_failed) + "\n" + Cloud.lastError, Toast.LENGTH_LONG).show();
+                        Cloud.lastError = "";
+                    }
                 } else if (SpeechService.doneType() == SpeechService.JOB_ENHANCE) {
                     Toast.makeText(this, R.string.notif_done_enhance, Toast.LENGTH_LONG).show();
                 }
@@ -648,7 +682,12 @@ public final class PlayerActivity extends AppCompatActivity {
         if (transcriptBox == null || rec == null) return;
         transcriptBox.removeAllViews();
         segTexts.clear();
+        segRows.clear();
         highlighted = -1;
+        if (liveCaption != null) {
+            liveCaption.setText("");
+            liveCaption.setVisibility(View.GONE);
+        }
         jobBar = null;
         jobPct = null;
 
@@ -690,6 +729,15 @@ public final class PlayerActivity extends AppCompatActivity {
             actions.setOrientation(LinearLayout.HORIZONTAL);
             actions.setPadding(dp(12), dp(12), dp(12), dp(10));
             actions.addView(actionTag(R.string.copy_all, this::copyTranscript, true), pillLp());
+            actions.addView(actionTag(R.string.summarize, this::summarize, false), pillLp());
+            final TextView follow = actionTag(R.string.follow_text, null, false);
+            Ui.setTagState(follow, store.getFollow());
+            follow.setOnClickListener(v -> {
+                boolean on = !store.getFollow();
+                store.setFollow(on);
+                Ui.setTagState(follow, on);
+            });
+            actions.addView(follow, pillLp());
             actions.addView(actionTag(R.string.share_text, this::shareTranscript, false), pillLp());
             actions.addView(actionTag(R.string.share_srt, this::shareSrt, false), pillLp());
             actions.addView(actionTag(R.string.redo, this::startTranscribe, false), pillLp());
@@ -703,7 +751,9 @@ public final class PlayerActivity extends AppCompatActivity {
             scroller.addView(actions);
             transcriptBox.addView(scroller);
 
+            if (liveCaption != null) liveCaption.setVisibility(View.VISIBLE);
             for (int i = 0; i < transcript.segs.size(); i++) {
+                final int segIndex = i;
                 final Transcript.Seg seg = transcript.segs.get(i);
                 transcriptBox.addView(Ui.divider(this, 16));
                 LinearLayout row = new LinearLayout(this);
@@ -730,10 +780,24 @@ public final class PlayerActivity extends AppCompatActivity {
                 text.setTextColor(c(R.attr.cTextPrimary));
                 row.addView(text, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
                 segTexts.add(text);
+                segRows.add(row);
 
                 row.setOnClickListener(v -> seekAndPlay(seg.startMs));
                 row.setOnLongClickListener(v -> {
-                    copyText(seg.text);
+                    new AlertDialog.Builder(this)
+                            .setItems(new CharSequence[]{getString(R.string.copy_line), getString(R.string.edit_line)}, (d, which) -> {
+                                if (which == 0) {
+                                    copyText(seg.text);
+                                } else {
+                                    Ui.editLines(this, R.string.edit_line, R.string.transcript_title, seg.text, 3, nv -> {
+                                        if (nv.isEmpty() || transcript == null || segIndex >= transcript.segs.size()) return;
+                                        transcript.segs.set(segIndex, new Transcript.Seg(seg.startMs, seg.endMs, nv));
+                                        Repo.saveTranscript(this, rec.id, transcript);
+                                        refreshTranscript();
+                                    });
+                                }
+                            })
+                            .show();
                     return true;
                 });
                 transcriptBox.addView(row);
@@ -789,9 +853,62 @@ public final class PlayerActivity extends AppCompatActivity {
             }
         }
         if (idx == highlighted) return;
-        if (highlighted >= 0 && highlighted < segTexts.size()) segTexts.get(highlighted).setTextColor(c(R.attr.cTextPrimary));
-        if (idx >= 0) segTexts.get(idx).setTextColor(c(R.attr.cAccentText));
+        if (highlighted >= 0 && highlighted < segTexts.size()) {
+            segTexts.get(highlighted).setTextColor(c(R.attr.cTextPrimary));
+            segTexts.get(highlighted).setTypeface(Typeface.DEFAULT);
+            segRows.get(highlighted).setBackgroundResource(R.drawable.bg_row_flat);
+        }
+        if (idx >= 0) {
+            int accent = c(R.attr.cAccentText);
+            segTexts.get(idx).setTextColor(accent);
+            segTexts.get(idx).setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            segRows.get(idx).setBackgroundColor((accent & 0x00FFFFFF) | 0x1F000000);
+            if (liveCaption != null) liveCaption.setText(transcript.segs.get(idx).text);
+            if (store.getFollow() && mainScroll != null && SystemClock.uptimeMillis() - lastUserScroll > 4000) {
+                Rect r = new Rect(0, 0, segRows.get(idx).getWidth(), segRows.get(idx).getHeight());
+                mainScroll.offsetDescendantRectToMyCoords(segRows.get(idx), r);
+                mainScroll.smoothScrollTo(0, Math.max(0, r.top - mainScroll.getHeight() / 3));
+            }
+        }
         highlighted = idx;
+    }
+
+    private void summarize() {
+        if (transcript == null || transcript.isEmpty() || summarizing) return;
+        final String key = store.getCloudKey();
+        if (key.isEmpty()) {
+            startActivity(new Intent(this, SpeechActivity.class));
+            return;
+        }
+        summarizing = true;
+        Toast.makeText(this, R.string.summarizing, Toast.LENGTH_SHORT).show();
+        final String text = transcript.fullText();
+        new Thread(() -> {
+            String out;
+            boolean ok = true;
+            try {
+                out = Cloud.summarize(key, text);
+            } catch (Exception e) {
+                ok = false;
+                out = Cloud.explain(e);
+            }
+            final String res = out;
+            final boolean good = ok;
+            runOnUiThread(() -> {
+                summarizing = false;
+                if (isFinishing()) return;
+                if (!good) {
+                    Toast.makeText(this, res, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                new AlertDialog.Builder(this)
+                        .setTitle(R.string.summarize)
+                        .setMessage(res)
+                        .setPositiveButton(R.string.copy_all, (d, w) -> copyText(res))
+                        .setNegativeButton(android.R.string.ok, null)
+                        .show();
+            });
+        }).start();
     }
 
     private void copyText(String text) {
