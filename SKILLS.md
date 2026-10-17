@@ -40,6 +40,7 @@
 - التنزيل: ثلاثة ملفات (encoder وdecoder وtokens) من مستودعات csukuangfj على Hugging Face، مع استئناف لكل ملف داخل مجلد `<folder>.dl`، ثم تُنقل إلى `models/<folder>` بأسماء ثابتة.
 - `Spec` فيه الحقول الجديدة: `engine` و`repo` و`prefix`. `Models.installed` يتحقق من الملفات الثلاثة.
 - `SpeechService.transcribeWhisper`: نفس خط المعالجة (فك الترميز ثم 16kHz ثم التنقية) ثم `Chunker` يقطع عند الصمت (6 إلى 26 ثانية) أو عند أهدأ نقطة، يتخطى المقاطع الصامتة تقريبًا، يتجاهل التكرار المتطابق (هلوسة Whisper)، ويقسّم النص إلى جمل بتوقيت تقريبي.
+- Whisper يعمل على الصوت الأصلي بدون `Enhancer` (التنقية الطيفية على مقاطع قصيرة كانت تشوّه الكلام وتضرّ بالدقة)؛ التنقية تبقى لمحرك Vosk فقط.
 - في `app/build.gradle`: `pickFirsts` لـ `libc++_shared.so` و`libonnxruntime.so` لتفادي تعارض المكتبات مع Vosk.
 - لم تُضف نماذج مصرية أو شامية مستقلة لأنها غير منشورة بصيغة sherpa-onnx؛ Whisper يتعامل مع اللهجتين بشكل عام فقط. الخطوة التالية: تحويل نموذج Whisper مضبوط على المصري أو الشامي إلى صيغة sherpa-onnx وإضافته كسطر جديد في `Models.ALL`، أو استعمال Cohere Transcribe Arabic على خادم.
 

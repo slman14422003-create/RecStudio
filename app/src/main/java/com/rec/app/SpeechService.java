@@ -518,7 +518,7 @@ public final class SpeechService extends Service {
 
         Transcript t = new Transcript();
         t.lang = spec.lang;
-        final Pipe pipe = new Pipe(store.getClean() ? new Enhancer(store.getCleanLevel(), true) : null);
+        final Pipe pipe = new Pipe(null);
         final Chunker chunker = new Chunker(r, t);
         PcmDecoder.decode(audio, (data, n, rate, ch, pts) -> {
             int c = pipe.feed(data, n, rate, ch);
