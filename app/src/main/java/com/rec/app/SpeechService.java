@@ -369,6 +369,10 @@ public final class SpeechService extends Service {
             transcribeWhisper(id, rec, store, spec);
             return;
         }
+        if (spec.engine == Models.ENGINE_CLOUD) {
+            transcribeCloud(id, rec, store, spec);
+            return;
+        }
         Model model = model(Models.dir(this, spec).getAbsolutePath());
 
         File audio = rec.file(this);
@@ -392,6 +396,7 @@ public final class SpeechService extends Service {
             feedRecognizer(rcg, pipe.pcm, c, t, lastEnd);
             collect(t, rcg.getFinalResult(), lastEnd);
         }
+        applyFixes(store, t);
         Repo.saveTranscript(this, id, t);
         setProgress(1f);
     }
@@ -530,6 +535,93 @@ public final class SpeechService extends Service {
         chunker.add(pipe.pcm, c);
         chunker.finish();
         if (cancel) throw new Models.CancelledException();
+        applyFixes(store, t);
+        Repo.saveTranscript(this, id, t);
+        setProgress(1f);
+    }
+
+    private static void applyFixes(Store store, Transcript t) {
+        if (store.getSmartFix() && !store.getCloudKey().isEmpty() && !t.segs.isEmpty()) {
+            try {
+                smartFix(store, t);
+            } catch (Exception ignored) {
+            }
+        }
+        java.util.List<Vocab.Entry> entries = Vocab.parse(store.getVocab());
+        if (entries.isEmpty()) return;
+        t.segs.replaceAll(sg -> new Transcript.Seg(sg.startMs, sg.endMs, Vocab.fix(sg.text, entries)));
+    }
+
+    private static void smartFix(Store store, Transcript t) throws IOException {
+        String hint = Vocab.prompt(store.getVocab());
+        int i = 0;
+        while (i < t.segs.size() && !cancel) {
+            int j = i;
+            int chars = 0;
+            while (j < t.segs.size() && j - i < 40 && chars < 3500) {
+                chars += t.segs.get(j).text.length();
+                j++;
+            }
+            String[] lines = new String[j - i];
+            for (int k = i; k < j; k++) lines[k - i] = t.segs.get(k).text;
+            String[] fixed = Cloud.fix(store.getCloudKey(), lines, hint);
+            for (int k = i; k < j; k++) {
+                Transcript.Seg o = t.segs.get(k);
+                t.segs.set(k, new Transcript.Seg(o.startMs, o.endMs, fixed[k - i]));
+            }
+            i = j;
+        }
+    }
+
+    private void transcribeCloud(String id, Recording rec, Store store, Models.Spec spec) throws Exception {
+        final String key = store.getCloudKey();
+        if (key.isEmpty()) throw new IOException("missing key");
+        File audio = rec.file(this);
+        long totalUs = PcmDecoder.durationUs(audio);
+        if (totalUs <= 0) totalUs = Math.max(1, rec.durationMs) * 1000L;
+        final long total = totalUs;
+        File tmp = new File(getCacheDir(), "cloud_" + id + ".pcm");
+        Transcript t = new Transcript();
+        t.lang = spec.lang;
+        try {
+            final Pipe pipe = new Pipe(null);
+            try (java.io.BufferedOutputStream out = new java.io.BufferedOutputStream(new java.io.FileOutputStream(tmp), 64 * 1024)) {
+                PcmDecoder.decode(audio, (data, n, rate, ch, pts) -> {
+                    int c = pipe.feed(data, n, rate, ch);
+                    for (int i = 0; i < c; i++) {
+                        out.write(pipe.pcm[i] & 0xff);
+                        out.write((pipe.pcm[i] >> 8) & 0xff);
+                    }
+                    setProgress(Math.min(0.5f, 0.5f * pts / (float) total));
+                }, () -> cancel);
+            }
+            String prompt = Vocab.prompt(store.getVocab());
+            long size = tmp.length();
+            long done = 0;
+            byte[] buf = new byte[(int) Math.min(size, Cloud.MAX_BYTES)];
+            try (java.io.FileInputStream in = new java.io.FileInputStream(tmp)) {
+                while (done < size) {
+                    if (cancel) throw new Models.CancelledException();
+                    int want = (int) Math.min(buf.length, size - done);
+                    int got = 0;
+                    while (got < want) {
+                        int r = in.read(buf, got, want - got);
+                        if (r < 0) break;
+                        got += r;
+                    }
+                    if (got <= 0) break;
+                    long offsetMs = done / 2L * 1000L / Voice16k.RATE;
+                    java.util.List<Transcript.Seg> part = Cloud.transcribe(key, Cloud.wav(buf, got), spec.lang, prompt, offsetMs);
+                    t.segs.addAll(part);
+                    done += got;
+                    setProgress(0.5f + 0.49f * done / (float) Math.max(1, size));
+                }
+            }
+        } finally {
+            tmp.delete();
+        }
+        if (cancel) throw new Models.CancelledException();
+        applyFixes(store, t);
         Repo.saveTranscript(this, id, t);
         setProgress(1f);
     }

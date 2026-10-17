@@ -84,6 +84,9 @@ public final class SettingsActivity extends AppCompatActivity {
         final String[] levels = getResources().getStringArray(R.array.clean_levels);
         addRow(gs, choiceRow(R.drawable.ic_set_denoise, R.color.indigo, R.string.settings_clean_level, levels, () -> store.getCleanLevel(), i -> store.setCleanLevel(i)));
         addRow(gs, toggleRow(R.drawable.ic_set_text, R.color.info, R.string.settings_auto_transcribe, store.getAutoTranscribe(), checked -> store.setAutoTranscribe(checked)));
+        addRow(gs, dialogRow(R.drawable.ic_set_text, R.color.violet, R.string.settings_vocab, () ->
+                Ui.editLines(this, R.string.settings_vocab, R.string.vocab_hint, store.getVocab(), 5, v -> store.setVocab(v))));
+        addRow(gs, toggleRow(R.drawable.ic_set_text, R.color.warn, R.string.settings_smart_fix, store.getSmartFix(), checked -> store.setSmartFix(checked)));
         footer(list, R.string.footer_speech);
 
         LinearLayout g2 = group(list, R.string.group_playback);
@@ -158,6 +161,22 @@ public final class SettingsActivity extends AppCompatActivity {
         chev.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         row.addView(chev);
 
+        row.setBackgroundResource(R.drawable.bg_row_flat);
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setOnClickListener(v -> action.run());
+        return row;
+    }
+
+    private LinearLayout dialogRow(int iconRes, int colorRes, int labelRes, Runnable action) {
+        LinearLayout row = baseRow(iconRes, colorRes, labelRes);
+        ImageView chev = new ImageView(this);
+        chev.setImageResource(R.drawable.ic_chevron_end);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(Ui.dp(this, 20), Ui.dp(this, 20));
+        clp.setMarginStart(Ui.dp(this, 4));
+        chev.setLayoutParams(clp);
+        chev.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        row.addView(chev);
         row.setBackgroundResource(R.drawable.bg_row_flat);
         row.setClickable(true);
         row.setFocusable(true);

@@ -1,6 +1,8 @@
 package com.rec.app;
 
+import android.content.Intent;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -178,7 +180,8 @@ public final class SpeechActivity extends AppCompatActivity {
 
         TextView sub = new TextView(this);
         String size = getString(R.string.speech_size_fmt, spec.mb);
-        sub.setText(spec.heavy ? size + "  \u00B7  " + getString(R.string.speech_heavy) : size);
+        if (spec.engine == Models.ENGINE_CLOUD) sub.setText(R.string.speech_cloud_sub);
+        else sub.setText(spec.heavy ? size + "  \u00B7  " + getString(R.string.speech_heavy) : size);
         sub.setTextSize(13);
         sub.setTextColor(c(R.attr.cTextHint));
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -191,7 +194,42 @@ public final class SpeechActivity extends AppCompatActivity {
         LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         alp.topMargin = dp(12);
 
-        if (downloadingThis) {
+        if (spec.engine == Models.ENGINE_CLOUD) {
+            if (installed && index != current) {
+                TextView use = Ui.tag(this, getString(R.string.speech_use));
+                Ui.setTagState(use, true);
+                use.setOnClickListener(v -> {
+                    store.setSpeechModel(index);
+                    SpeechService.releaseModel();
+                    signature = "";
+                    poll();
+                });
+                actions.addView(use, tagLp());
+            }
+            TextView keyTag = Ui.tag(this, getString(installed ? R.string.speech_key_change : R.string.speech_key_add));
+            Ui.setTagState(keyTag, !installed);
+            keyTag.setOnClickListener(v -> askKey(index));
+            actions.addView(keyTag, tagLp());
+            if (installed) {
+                TextView rm = Ui.tag(this, getString(R.string.speech_key_remove));
+                rm.setTextColor(getColor(R.color.bad));
+                rm.setOnClickListener(v -> {
+                    store.setCloudKey("");
+                    signature = "";
+                    poll();
+                });
+                actions.addView(rm, tagLp());
+            } else {
+                TextView get = Ui.tag(this, getString(R.string.speech_key_get));
+                get.setOnClickListener(v -> {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Cloud.KEYS_URL)));
+                    } catch (RuntimeException ignored) {
+                    }
+                });
+                actions.addView(get, tagLp());
+            }
+        } else if (downloadingThis) {
             float p = SpeechService.progress();
             ProgressBar pb = Ui.progressBar(this);
             pb.setIndeterminate(p < 0);
@@ -254,6 +292,16 @@ public final class SpeechActivity extends AppCompatActivity {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.setMarginEnd(dp(8));
         return lp;
+    }
+
+    private void askKey(final int index) {
+        Ui.editLines(this, R.string.speech_key_title, R.string.speech_key_hint, "", 1, v -> {
+            store.setCloudKey(v);
+            if (!v.isEmpty()) store.setSpeechModel(index);
+            SpeechService.releaseModel();
+            signature = "";
+            poll();
+        });
     }
 
     private void askDownload(final int index, Models.Spec spec) {

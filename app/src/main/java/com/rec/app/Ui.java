@@ -199,6 +199,30 @@ public final class Ui {
         parent.addView(t);
     }
 
+    public static void editLines(Context c, int titleRes, int hintRes, String current, int minLines, Consumer<String> onDone) {
+        EditText input = new EditText(c);
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        input.setMinLines(minLines);
+        input.setMaxLines(Math.max(minLines, 10));
+        input.setGravity(Gravity.TOP | Gravity.START);
+        input.setHint(hintRes);
+        input.setText(current);
+        input.setTextSize(16);
+        input.setTextColor(attrColor(c, R.attr.cTextPrimary));
+        input.setHintTextColor(attrColor(c, R.attr.cTextHint));
+        input.setBackground(round(attrColor(c, R.attr.cField), dp(c, 12), 0, 0));
+        input.setPadding(dp(c, 14), dp(c, 10), dp(c, 14), dp(c, 10));
+        FrameLayout box = new FrameLayout(c);
+        box.setPadding(dp(c, 20), dp(c, 8), dp(c, 20), 0);
+        box.addView(input, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        new AlertDialog.Builder(c)
+                .setTitle(titleRes)
+                .setView(box)
+                .setPositiveButton(R.string.save, (x, w) -> onDone.accept(input.getText().toString().trim()))
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
     public static void rename(Context c, String current, Consumer<String> onDone) {
         EditText input = new EditText(c);
         input.setSingleLine(true);

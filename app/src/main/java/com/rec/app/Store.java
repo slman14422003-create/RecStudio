@@ -36,6 +36,9 @@ public final class Store {
     private static final String K_CLEAN = "speech_clean";
     private static final String K_CLEAN_LEVEL = "speech_clean_level";
     private static final String K_AUTO_TR = "speech_auto";
+    private static final String K_VOCAB = "speech_vocab";
+    private static final String K_CLOUD_KEY = "cloud_key";
+    private static final String K_SMART_FIX = "cloud_fix";
 
     private final SharedPreferences prefs;
 
@@ -120,4 +123,13 @@ public final class Store {
 
     public boolean getAutoTranscribe() { return prefs.getBoolean(K_AUTO_TR, false); }
     public void setAutoTranscribe(boolean b) { prefs.edit().putBoolean(K_AUTO_TR, b).apply(); }
+
+    public String getVocab() { return prefs.getString(K_VOCAB, ""); }
+    public void setVocab(String v) { prefs.edit().putString(K_VOCAB, v == null ? "" : v).apply(); }
+
+    public String getCloudKey() { return prefs.getString(K_CLOUD_KEY, ""); }
+    public void setCloudKey(String k) { prefs.edit().putString(K_CLOUD_KEY, k == null ? "" : k.trim()).apply(); }
+
+    public boolean getSmartFix() { return prefs.getBoolean(K_SMART_FIX, true); }
+    public void setSmartFix(boolean b) { prefs.edit().putBoolean(K_SMART_FIX, b).apply(); }
 }

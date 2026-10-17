@@ -27,6 +27,7 @@ public final class Models {
 
     public static final int ENGINE_VOSK = 0;
     public static final int ENGINE_WHISPER = 1;
+    public static final int ENGINE_CLOUD = 2;
 
     public static final String WHISPER_ENCODER = "encoder.int8.onnx";
     public static final String WHISPER_DECODER = "decoder.int8.onnx";
@@ -81,7 +82,8 @@ public final class Models {
             new Spec("vosk-model-small-ru-0.22", "ru", 45, false),
             new Spec("whisper-small-ar", "ar", 360, false, ENGINE_WHISPER, "sherpa-onnx-whisper-small", "small"),
             new Spec("whisper-medium-ar", "ar", 900, true, ENGINE_WHISPER, "sherpa-onnx-whisper-medium", "medium"),
-            new Spec("whisper-turbo-ar", "ar", 1000, true, ENGINE_WHISPER, "sherpa-onnx-whisper-turbo", "turbo")
+            new Spec("whisper-turbo-ar", "ar", 1000, true, ENGINE_WHISPER, "sherpa-onnx-whisper-turbo", "turbo"),
+            new Spec("cloud-groq-whisper", "ar", 0, false, ENGINE_CLOUD, null, null)
     };
 
     private Models() {}
@@ -97,6 +99,7 @@ public final class Models {
     }
 
     public static boolean installed(Context c, Spec s) {
+        if (s.engine == ENGINE_CLOUD) return !new Store(c).getCloudKey().isEmpty();
         File d = dir(c, s);
         if (s.engine == ENGINE_WHISPER) {
             return new File(d, WHISPER_ENCODER).isFile() && new File(d, WHISPER_DECODER).isFile() && new File(d, WHISPER_TOKENS).isFile();
