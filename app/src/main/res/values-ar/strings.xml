@@ -181,13 +181,13 @@
     <string name="group_speech">تحويل الكلام إلى نص</string>
     <string name="settings_engine">محرك الكلام</string>
     <string name="settings_smart_fix">تصحيح ذكي عبر الإنترنت</string>
-    <string name="speech_cloud_sub">يحتاج إنترنت ومفتاح Groq مجانيًا. الأدق؛ يُرسَل الصوت إلى Groq.</string>
+    <string name="speech_cloud_sub">يحتاج إنترنت ورمز الـ Worker الخاص بك على Cloudflare. دقيق؛ يُرسَل الصوت إلى Cloudflare Workers AI.</string>
     <string name="speech_key_add">أضف مفتاحًا مجانيًا</string>
     <string name="speech_key_change">غيّر المفتاح</string>
     <string name="speech_key_remove">احذف المفتاح</string>
     <string name="speech_key_get">احصل على مفتاح مجاني</string>
-    <string name="speech_key_title">مفتاح Groq</string>
-    <string name="speech_key_hint">الصق مفتاحك المجاني من console.groq.com (بدون بطاقة). للباقة المجانية حدود يومية ولا ضمان للخصوصية.</string>
+    <string name="speech_key_title">رمز Worker</string>
+    <string name="speech_key_hint">الصق الـ TOKEN الذي وضعته في Worker على Cloudflare.</string>
     <string name="settings_vocab">كلمات مخصصة</string>
     <string name="vocab_hint">اسم أو مصطلح في كل سطر بكتابته الصحيحة. الكلمات المتشابهة في النطق التي يخطئ فيها المحرك تُصحَّح إليها في التفريغ الجديد.</string>
     <string name="engine_none">غير مُعدّ</string>

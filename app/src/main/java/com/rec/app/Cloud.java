@@ -17,11 +17,11 @@ import java.util.UUID;
 
 final class Cloud {
 
-    static final String BASE = "https://api.groq.com/openai/v1/";
-    static final String STT_MODEL = "whisper-large-v3";
-    static final String LLM_MODEL = "llama-3.3-70b-versatile";
-    static final String KEYS_URL = "https://console.groq.com/keys";
-    static final int MAX_BYTES = 10 * 60 * Voice16k.RATE * 2;
+    static final String BASE = "https://rec-ai.YOUR-SUBDOMAIN.workers.dev/";
+    static final String STT_MODEL = "whisper-large-v3-turbo";
+    static final String LLM_MODEL = "llama-3.3-70b";
+    static final String KEYS_URL = "https://dash.cloudflare.com/";
+    static final int MAX_BYTES = 2 * 60 * Voice16k.RATE * 2;
 
     private static final String SYSTEM_FIX = "You correct speech recognition errors in Arabic transcripts. "
             + "The speaker may use Egyptian, Levantine or any other dialect: keep the dialect and the original wording. "

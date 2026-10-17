@@ -181,13 +181,13 @@
     <string name="group_speech">Speech to text</string>
     <string name="settings_engine">Speech engine</string>
     <string name="settings_smart_fix">Online smart correction</string>
-    <string name="speech_cloud_sub">Needs internet and a free Groq key. Most accurate; audio is sent to Groq.</string>
+    <string name="speech_cloud_sub">Needs internet and your Cloudflare Worker token. Accurate; audio is sent to Cloudflare Workers AI.</string>
     <string name="speech_key_add">Add free key</string>
     <string name="speech_key_change">Change key</string>
     <string name="speech_key_remove">Remove key</string>
     <string name="speech_key_get">Get a free key</string>
-    <string name="speech_key_title">Groq API key</string>
-    <string name="speech_key_hint">Paste your free key from console.groq.com (no card needed). Free tier has daily limits and no privacy guarantee.</string>
+    <string name="speech_key_title">Worker token</string>
+    <string name="speech_key_hint">Paste the TOKEN you set in your Cloudflare Worker.</string>
     <string name="settings_vocab">Custom words</string>
     <string name="vocab_hint">One name or term per line, written correctly. Misheard similar-sounding words in new transcripts are fixed to these.</string>
     <string name="engine_none">Not set up</string>
