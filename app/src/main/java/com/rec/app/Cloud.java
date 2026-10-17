@@ -26,7 +26,7 @@ final class Cloud {
     private static final String SYSTEM_FIX = "You correct speech recognition errors in Arabic transcripts. "
             + "The speaker may use Egyptian, Levantine or any other dialect: keep the dialect and the original wording. "
             + "Never rewrite, translate, summarize, censor or add content. "
-            + "Change only words that are clearly misheard given the surrounding context: similar sounding wrong words, wrong names, broken words. "
+            + "Fix every word that is misheard or makes no sense in the sentence: similar sounding wrong words, wrong names, broken words, wrong prepositions. Add punctuation. "
             + "If a line looks right, return it unchanged. "
             + "Reply with a JSON object {\"lines\": [...]} holding exactly the same number of strings in the same order.";
 
