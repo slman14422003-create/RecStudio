@@ -276,4 +276,6 @@
         <item>تركيز على الصوت</item>
         <item>متحدث بعيد (قوي)</item>
     </string-array>
+    <string name="settings_neural">تنقية بالذكاء الاصطناعي (GTCRN)</string>
+    <string name="neural_fallback">تعذّرت التنقية بالذكاء الاصطناعي، تم استخدام التنقية العادية</string>
 </resources>

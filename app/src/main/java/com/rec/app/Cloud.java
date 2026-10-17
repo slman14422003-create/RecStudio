@@ -32,6 +32,7 @@ final class Cloud {
 
     static volatile String lastError = "";
     static volatile String fallbackNote = "";
+    static volatile String enhanceNote = "";
 
     private Cloud() {}
 

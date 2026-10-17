@@ -83,6 +83,7 @@ public final class SettingsActivity extends AppCompatActivity {
         LinearLayout gs = group(list, R.string.group_speech);
         addRow(gs, linkRow(R.drawable.ic_set_speech, R.color.ok, R.string.settings_engine, () -> startActivity(new Intent(this, SpeechActivity.class))));
         addRow(gs, toggleRow(R.drawable.ic_set_clean, R.color.teal, R.string.settings_clean, store.getClean(), checked -> store.setClean(checked)));
+        addRow(gs, toggleRow(R.drawable.ic_set_denoise, R.color.ok, R.string.settings_neural, store.getNeural(), checked -> store.setNeural(checked)));
         final String[] levels = getResources().getStringArray(R.array.clean_levels);
         addRow(gs, choiceRow(R.drawable.ic_set_denoise, R.color.indigo, R.string.settings_clean_level, levels, () -> store.getCleanLevel(), i -> store.setCleanLevel(i)));
         addRow(gs, toggleRow(R.drawable.ic_set_text, R.color.info, R.string.settings_auto_transcribe, store.getAutoTranscribe(), checked -> store.setAutoTranscribe(checked)));

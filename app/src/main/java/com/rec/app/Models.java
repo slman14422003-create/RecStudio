@@ -145,9 +145,9 @@ public final class Models {
         f.delete();
     }
 
-    private static String proxyKey = "";
+    static String proxyKey = "";
 
-    private static HttpURLConnection connect(String url, long have) throws IOException {
+    static HttpURLConnection connect(String url, long have) throws IOException {
         IOException first = null;
         for (int attempt = 0; attempt < 2; attempt++) {
             boolean proxy = attempt == 1;

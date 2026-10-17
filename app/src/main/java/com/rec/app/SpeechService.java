@@ -710,6 +710,9 @@ public final class SpeechService extends Service {
         final long total = totalUs;
 
         final Pipe pipe = new Pipe(new Enhancer(store.getCleanLevel(), true));
+        Cloud.enhanceNote = "";
+        final float[] gainBox = {1f};
+        File den = store.getNeural() ? neuralStage(audio, total, gainBox) : null;
         String newId = Repo.newId();
         File out = Repo.audio(this, newId);
         final ArrayList<Float> levels = new ArrayList<>();
@@ -719,17 +722,39 @@ public final class SpeechService extends Service {
         boolean ok = false;
         AacWriter writer = new AacWriter(out, Voice16k.RATE, 1, 48000);
         try (writer) {
-            PcmDecoder.decode(audio, (data, n, rate, ch, pts) -> {
-                int c = pipe.feed(data, n, rate, ch);
+            if (den != null) {
+                long denSize = Math.max(1, den.length());
+                long doneBytes = 0;
+                byte[] bb = new byte[64 * 1024];
+                short[] sb = new short[bb.length / 2];
+                try (java.io.FileInputStream in = new java.io.FileInputStream(den)) {
+                    int r;
+                    while ((r = in.read(bb)) > 1) {
+                        if (cancel) throw new Models.CancelledException();
+                        int cnt = r / 2;
+                        for (int i = 0; i < cnt; i++) sb[i] = (short) ((bb[2 * i] & 0xff) | (bb[2 * i + 1] << 8));
+                        NeuralDenoiser.applyGain(sb, cnt, gainBox[0]);
+                        writer.write(sb, cnt);
+                        track(sb, cnt, levels, peak, counter, chunk);
+                        doneBytes += r;
+                        setProgress(0.9f + 0.09f * doneBytes / (float) denSize);
+                    }
+                }
+                ok = true;
+            } else {
+                PcmDecoder.decode(audio, (data, n, rate, ch, pts) -> {
+                    int c = pipe.feed(data, n, rate, ch);
+                    writer.write(pipe.pcm, c);
+                    track(pipe.pcm, c, levels, peak, counter, chunk);
+                    setProgress(Math.min(0.99f, pts / (float) total));
+                }, () -> cancel);
+                int c = pipe.flush();
                 writer.write(pipe.pcm, c);
                 track(pipe.pcm, c, levels, peak, counter, chunk);
-                setProgress(Math.min(0.99f, pts / (float) total));
-            }, () -> cancel);
-            int c = pipe.flush();
-            writer.write(pipe.pcm, c);
-            track(pipe.pcm, c, levels, peak, counter, chunk);
-            ok = true;
+                ok = true;
+            }
         } finally {
+            if (den != null) den.delete();
             if (!ok) out.delete();
         }
 
@@ -743,6 +768,48 @@ public final class SpeechService extends Service {
         Repo.save(this, copy);
         lastCreatedId = newId;
         setProgress(1f);
+    }
+
+    private File neuralStage(File audio, final long total, float[] gainBox) throws Exception {
+        if (!NeuralDenoiser.ensure(this)) {
+            Cloud.enhanceNote = "model download failed";
+            return null;
+        }
+        NeuralDenoiser dn;
+        try {
+            dn = NeuralDenoiser.open(this);
+        } catch (Throwable t) {
+            Cloud.enhanceNote = t.getClass().getSimpleName() + ": " + t.getMessage();
+            return null;
+        }
+        File raw = new File(getCacheDir(), "nd_raw.pcm");
+        File fin = new File(getCacheDir(), "nd_out.pcm");
+        boolean ok = false;
+        try (dn) {
+            final Pipe pipe = new Pipe(null);
+            try (java.io.BufferedOutputStream os = new java.io.BufferedOutputStream(new java.io.FileOutputStream(raw), 64 * 1024)) {
+                PcmDecoder.decode(audio, (data, n, rate, ch, pts) -> {
+                    int c = pipe.feed(data, n, rate, ch);
+                    for (int i = 0; i < c; i++) {
+                        os.write(pipe.pcm[i] & 0xff);
+                        os.write((pipe.pcm[i] >> 8) & 0xff);
+                    }
+                    setProgress(Math.min(0.3f, 0.3f * pts / (float) total));
+                }, () -> cancel);
+            }
+            if (cancel) throw new Models.CancelledException();
+            gainBox[0] = dn.process(raw, fin, () -> cancel, p -> setProgress(0.3f + 0.6f * p));
+            ok = true;
+            return fin;
+        } catch (Models.CancelledException e) {
+            throw e;
+        } catch (Throwable t) {
+            Cloud.enhanceNote = t.getClass().getSimpleName() + ": " + t.getMessage();
+            return null;
+        } finally {
+            raw.delete();
+            if (!ok) fin.delete();
+        }
     }
 
     private static void track(short[] pcm, int n, ArrayList<Float> levels, float[] peak, int[] counter, int chunk) {

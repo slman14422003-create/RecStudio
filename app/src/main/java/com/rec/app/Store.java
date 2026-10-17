@@ -41,6 +41,7 @@ public final class Store {
     private static final String K_SMART_FIX = "cloud_fix";
     private static final String K_FOLLOW = "tr_follow";
     private static final String K_FOCUS = "voice_focus";
+    private static final String K_NEURAL = "neural_denoise";
 
     private final SharedPreferences prefs;
 
@@ -134,6 +135,9 @@ public final class Store {
 
     public boolean getSmartFix() { return prefs.getBoolean(K_SMART_FIX, true); }
     public void setSmartFix(boolean b) { prefs.edit().putBoolean(K_SMART_FIX, b).apply(); }
+
+    public boolean getNeural() { return prefs.getBoolean(K_NEURAL, true); }
+    public void setNeural(boolean b) { prefs.edit().putBoolean(K_NEURAL, b).apply(); }
 
     public int getFocus() { return prefs.getInt(K_FOCUS, 1); }
     public void setFocus(int i) { prefs.edit().putInt(K_FOCUS, i).apply(); }

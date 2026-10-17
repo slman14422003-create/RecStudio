@@ -637,6 +637,10 @@ public final class PlayerActivity extends AppCompatActivity {
                     }
                 } else if (SpeechService.doneType() == SpeechService.JOB_ENHANCE) {
                     Toast.makeText(this, R.string.notif_done_enhance, Toast.LENGTH_LONG).show();
+                    if (!Cloud.enhanceNote.isEmpty()) {
+                        Toast.makeText(this, getString(R.string.neural_fallback) + "\n" + Cloud.enhanceNote, Toast.LENGTH_LONG).show();
+                        Cloud.enhanceNote = "";
+                    }
                 }
             }
         }

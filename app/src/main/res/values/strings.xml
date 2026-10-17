@@ -276,4 +276,6 @@
         <item>Voice focus</item>
         <item>Far speaker (strong)</item>
     </string-array>
+    <string name="settings_neural">AI denoising (GTCRN)</string>
+    <string name="neural_fallback">AI denoise unavailable, standard cleanup was used</string>
 </resources>
