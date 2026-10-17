@@ -167,8 +167,78 @@ public final class Repo {
         }
     }
 
+    private static File tfile(Context c, String id) {
+        return new File(dir(c), id + ".tr");
+    }
+
+    public static boolean hasTranscript(Context c, String id) {
+        return tfile(c, id).exists();
+    }
+
+    public static void deleteTranscript(Context c, String id) {
+        tfile(c, id).delete();
+    }
+
+    public static void saveTranscript(Context c, String id, Transcript t) {
+        try {
+            JSONObject o = new JSONObject();
+            o.put("lang", t.lang);
+            JSONArray a = new JSONArray();
+            for (Transcript.Seg s : t.segs) {
+                JSONObject j = new JSONObject();
+                j.put("s", s.startMs);
+                j.put("e", s.endMs);
+                j.put("t", s.text);
+                a.put(j);
+            }
+            o.put("segs", a);
+            File target = tfile(c, id);
+            File tmp = new File(target.getParentFile(), id + ".trtmp");
+            try (FileOutputStream out = new FileOutputStream(tmp)) {
+                out.write(o.toString().getBytes(StandardCharsets.UTF_8));
+                out.getFD().sync();
+            }
+            if (!tmp.renameTo(target)) {
+                target.delete();
+                tmp.renameTo(target);
+            }
+        } catch (IOException | JSONException ignored) {
+        }
+    }
+
+    public static Transcript loadTranscript(Context c, String id) {
+        File f = tfile(c, id);
+        if (!f.exists()) return null;
+        try {
+            byte[] buf = new byte[(int) f.length()];
+            try (FileInputStream in = new FileInputStream(f)) {
+                int off = 0;
+                while (off < buf.length) {
+                    int n = in.read(buf, off, buf.length - off);
+                    if (n < 0) break;
+                    off += n;
+                }
+            }
+            JSONObject o = new JSONObject(new String(buf, StandardCharsets.UTF_8));
+            Transcript t = new Transcript();
+            t.lang = o.optString("lang", "");
+            JSONArray a = o.optJSONArray("segs");
+            if (a != null) {
+                for (int i = 0; i < a.length(); i++) {
+                    JSONObject j = a.getJSONObject(i);
+                    t.segs.add(new Transcript.Seg(j.getLong("s"), j.getLong("e"), j.getString("t")));
+                }
+            }
+            return t;
+        } catch (IOException | JSONException | RuntimeException e) {
+            return null;
+        }
+    }
+
     public static void delete(Context c, String id) {
         audio(c, id).delete();
+        tfile(c, id).delete();
+        new File(dir(c), id + ".trtmp").delete();
         meta(c, id).delete();
         new File(dir(c), id + ".tmp").delete();
         new File(dir(c), id + ".trim").delete();
@@ -215,6 +285,8 @@ public final class Repo {
         d.markers.addAll(r.markers);
         d.peaks = r.peaks.clone();
         save(c, d);
+        Transcript t = loadTranscript(c, r.id);
+        if (t != null) saveTranscript(c, id, t);
         return d;
     }
 

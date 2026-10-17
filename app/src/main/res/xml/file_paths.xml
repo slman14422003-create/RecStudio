@@ -2,4 +2,5 @@
 <paths>
     <external-files-path name="rec_external" path="." />
     <files-path name="rec_internal" path="." />
+    <cache-path name="rec_cache" path="." />
 </paths>

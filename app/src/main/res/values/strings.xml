@@ -177,4 +177,74 @@
         <item>+6 dB</item>
         <item>+9 dB</item>
     </string-array>
+
+    <string name="group_speech">Speech to text</string>
+    <string name="settings_engine">Speech engine</string>
+    <string name="engine_none">Not set up</string>
+    <string name="settings_clean">Clean audio first</string>
+    <string name="settings_clean_level">Cleaning strength</string>
+    <string name="settings_auto_transcribe">Transcribe after recording</string>
+    <string name="footer_speech">Cleaning reduces background noise before the speech is recognised, which improves accuracy. Everything runs on this phone.</string>
+    <string-array name="clean_levels">
+        <item>Light</item>
+        <item>Medium</item>
+        <item>Strong</item>
+    </string-array>
+
+    <string name="speech_title">Speech engine</string>
+    <string name="speech_intro_title">Offline speech to text</string>
+    <string name="speech_intro">Download one speech model once, then transcribe your recordings with no internet connection. The engine is Vosk, a free open-source recogniser that runs entirely on this phone, and your audio never leaves it.</string>
+    <string name="speech_models">Models</string>
+    <string name="speech_active">In use</string>
+    <string name="speech_size_fmt">About %1$d MB</string>
+    <string name="speech_heavy">Needs a recent phone with 4 GB RAM or more</string>
+    <string name="speech_installing">Installing…</string>
+    <string name="speech_use">Use this model</string>
+    <string name="speech_download">Download</string>
+    <string name="speech_resume_fmt">Resume (%1$s done)</string>
+    <string name="speech_delete_title">Delete this model?</string>
+    <string name="speech_delete_message">You can download it again later. Existing transcripts are kept.</string>
+    <string name="speech_busy">Another task is running, please wait</string>
+    <string name="speech_download_title">Download speech model</string>
+    <string name="speech_download_message">About %1$d MB will be downloaded once. This is the only time the app needs the internet; afterwards everything works offline. Wi-Fi is recommended.</string>
+    <string name="speech_ready">Speech engine is ready</string>
+    <string name="speech_footer">Models come from the free Vosk model collection. If a download is interrupted it resumes where it stopped.</string>
+    <string name="speech_setup">Set up speech engine</string>
+
+    <string name="err_download">Download failed. Check your connection and try again; progress is kept.</string>
+    <string name="err_engine">The speech engine could not start on this device. Try a smaller model.</string>
+    <string name="err_generic">Something went wrong</string>
+    <string name="job_download">Downloading speech model</string>
+    <string name="job_transcribe">Transcribing</string>
+    <string name="job_enhance">Cleaning audio</string>
+    <string name="notif_speech_channel">Speech to text</string>
+    <string name="notif_done_download">Speech engine ready</string>
+    <string name="notif_done_transcribe">Transcript ready</string>
+    <string name="notif_done_enhance">Clean copy saved</string>
+    <string name="clean_copy">Create clean voice copy</string>
+    <string name="clean_copy_title">%1$s (clean)</string>
+
+    <string name="transcript_title">Transcript</string>
+    <string name="transcript_hint">Turn this recording into text on your phone, with no internet.</string>
+    <string name="transcript_setup_hint">Download a speech model once to transcribe recordings offline.</string>
+    <string name="transcript_none">No speech was detected in this recording.</string>
+    <string name="transcribe">Transcribe</string>
+    <string name="copy_all">Copy all</string>
+    <string name="share_text">Share text</string>
+    <string name="share_srt">Subtitles (.srt)</string>
+    <string name="redo">Redo</string>
+    <string name="copied">Copied</string>
+    <string name="has_transcript">Transcript</string>
+
+    <string-array name="speech_model_names">
+        <item>Arabic · Standard (large)</item>
+        <item>Arabic · Tunisian (small)</item>
+        <item>English · Small</item>
+        <item>English · Large</item>
+        <item>French · Small</item>
+        <item>Spanish · Small</item>
+        <item>German · Small</item>
+        <item>Turkish · Small</item>
+        <item>Russian · Small</item>
+    </string-array>
 </resources>

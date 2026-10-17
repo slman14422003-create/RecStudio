@@ -368,6 +368,7 @@ public final class RecordActivity extends AppCompatActivity {
     private void openPlayer(String id) {
         Intent i = new Intent(this, PlayerActivity.class);
         i.putExtra(PlayerActivity.EXTRA_ID, id);
+        i.putExtra(PlayerActivity.EXTRA_FRESH, true);
         startActivity(i);
     }
 }

@@ -31,11 +31,17 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class PlayerActivity extends AppCompatActivity {
 
     public static final String EXTRA_ID = "id";
+    public static final String EXTRA_FRESH = "fresh";
 
     private static final float[] SPEEDS = {0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f};
 
@@ -59,6 +65,22 @@ public final class PlayerActivity extends AppCompatActivity {
     private ImageButton btnStar;
     private LinearLayout markersBox;
     private LinearLayout markersCard;
+    private LinearLayout transcriptBox;
+    private Transcript transcript;
+    private final List<TextView> segTexts = new ArrayList<>();
+    private int highlighted = -1;
+    private long seenDone;
+    private long seenError;
+    private boolean lastBusyHere;
+    private android.widget.ProgressBar jobBar;
+    private TextView jobPct;
+    private final Runnable jobTick = new Runnable() {
+        @Override
+        public void run() {
+            pollJob();
+            handler.postDelayed(this, 300);
+        }
+    };
 
     private float speed = 1f;
     private boolean loop;
@@ -99,14 +121,29 @@ public final class PlayerActivity extends AppCompatActivity {
             return;
         }
 
+        seenDone = SpeechService.doneSeq();
+        seenError = SpeechService.errorSeq();
+
         buildUi();
         setupPlayer();
         refreshAll();
+
+        if (getIntent().getBooleanExtra(EXTRA_FRESH, false) && store.getAutoTranscribe()
+                && transcript == null && Models.anyInstalled(this) && !SpeechService.busy()) {
+            SpeechService.startTranscribe(this, rec.id);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (rec != null) handler.post(jobTick);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        handler.removeCallbacks(jobTick);
         pausePlayback();
     }
 
@@ -275,6 +312,15 @@ public final class PlayerActivity extends AppCompatActivity {
         markersCard.addView(markersBox, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         content.addView(markersCard, mlp);
 
+        LinearLayout transcriptCard = new LinearLayout(this);
+        transcriptCard.setOrientation(LinearLayout.VERTICAL);
+        Ui.groupTitle(transcriptCard, R.string.transcript_title);
+        transcriptBox = Ui.card(this);
+        transcriptCard.addView(transcriptBox, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams tcl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        tcl.setMargins(dp(16), 0, dp(16), 0);
+        content.addView(transcriptCard, tcl);
+
         setContentView(root);
     }
 
@@ -394,6 +440,8 @@ public final class PlayerActivity extends AppCompatActivity {
         refreshLabelTag();
         refreshMarkers();
         updateTimes(0);
+        transcript = Repo.loadTranscript(this, rec.id);
+        refreshTranscript();
     }
 
     private void refreshStar() {
@@ -490,6 +538,7 @@ public final class PlayerActivity extends AppCompatActivity {
                 getString(R.string.rename),
                 getString(R.string.label_title),
                 getString(R.string.trim),
+                getString(R.string.clean_copy),
                 getString(R.string.duplicate),
                 getString(R.string.save_device),
                 getString(R.string.move_trash)
@@ -510,11 +559,19 @@ public final class PlayerActivity extends AppCompatActivity {
                             trimLauncher.launch(i);
                             break;
                         case 3:
+                            if (SpeechService.busy()) {
+                                Toast.makeText(this, R.string.speech_busy, Toast.LENGTH_SHORT).show();
+                            } else {
+                                pausePlayback();
+                                SpeechService.startEnhance(this, rec.id);
+                            }
+                            break;
+                        case 4:
                             if (Repo.duplicate(this, rec, getString(R.string.copy_title, rec.title)) != null) {
                                 Toast.makeText(this, R.string.duplicated, Toast.LENGTH_SHORT).show();
                             }
                             break;
-                        case 4:
+                        case 5:
                             Ui.saveToDevice(this, rec);
                             break;
                         default:
@@ -526,6 +583,259 @@ public final class PlayerActivity extends AppCompatActivity {
                     }
                 })
                 .show();
+    }
+
+    private boolean busyHere() {
+        if (rec == null || !SpeechService.busy()) return false;
+        int t = SpeechService.type();
+        return (t == SpeechService.JOB_TRANSCRIBE || t == SpeechService.JOB_ENHANCE) && rec.id.equals(SpeechService.key());
+    }
+
+    private void pollJob() {
+        if (rec == null) return;
+        if (SpeechService.doneSeq() != seenDone) {
+            seenDone = SpeechService.doneSeq();
+            if (!SpeechService.doneCancelled()) {
+                if (SpeechService.doneType() == SpeechService.JOB_TRANSCRIBE && rec.id.equals(SpeechService.doneKey())) {
+                    transcript = Repo.loadTranscript(this, rec.id);
+                    lastBusyHere = false;
+                    refreshTranscript();
+                    Toast.makeText(this, R.string.notif_done_transcribe, Toast.LENGTH_SHORT).show();
+                } else if (SpeechService.doneType() == SpeechService.JOB_ENHANCE) {
+                    Toast.makeText(this, R.string.notif_done_enhance, Toast.LENGTH_LONG).show();
+                }
+            }
+        }
+        if (SpeechService.errorSeq() != seenError) {
+            seenError = SpeechService.errorSeq();
+            Toast.makeText(this, getString(SpeechService.errorRes()) + "\n" + SpeechService.errorDetail(), Toast.LENGTH_LONG).show();
+        }
+        boolean busy = busyHere();
+        if (busy != lastBusyHere) {
+            lastBusyHere = busy;
+            refreshTranscript();
+        } else if (busy && jobBar != null) {
+            float p = SpeechService.progress();
+            jobBar.setIndeterminate(p < 0);
+            if (p >= 0) jobBar.setProgress(Math.round(p * 100f));
+            if (jobPct != null) jobPct.setText(p < 0 ? "" : Math.round(p * 100f) + "%");
+        }
+    }
+
+    private LinearLayout.LayoutParams boxLp(int topDp) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(dp(16), dp(topDp), dp(16), 0);
+        return lp;
+    }
+
+    private TextView infoText(int res) {
+        TextView t = new TextView(this);
+        t.setText(res);
+        t.setTextSize(14);
+        t.setTextColor(c(R.attr.cTextSecondary));
+        t.setLineSpacing(0, 1.12f);
+        return t;
+    }
+
+    private TextView actionTag(int res, Runnable action, boolean primary) {
+        TextView t = Ui.tag(this, getString(res));
+        if (primary) Ui.setTagState(t, true);
+        t.setOnClickListener(v -> action.run());
+        return t;
+    }
+
+    private void refreshTranscript() {
+        if (transcriptBox == null || rec == null) return;
+        transcriptBox.removeAllViews();
+        segTexts.clear();
+        highlighted = -1;
+        jobBar = null;
+        jobPct = null;
+
+        if (busyHere()) {
+            boolean enhancing = SpeechService.type() == SpeechService.JOB_ENHANCE;
+            TextView label = infoText(enhancing ? R.string.job_enhance : R.string.job_transcribe);
+            label.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+            label.setTextColor(c(R.attr.cTextPrimary));
+            transcriptBox.addView(label, boxLp(16));
+
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            jobBar = Ui.progressBar(this);
+            float p = SpeechService.progress();
+            jobBar.setIndeterminate(p < 0);
+            if (p >= 0) jobBar.setProgress(Math.round(p * 100f));
+            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(0, dp(6), 1f);
+            blp.setMarginEnd(dp(12));
+            row.addView(jobBar, blp);
+            jobPct = new TextView(this);
+            jobPct.setTextSize(13);
+            jobPct.setTextColor(c(R.attr.cTextSecondary));
+            row.addView(jobPct);
+            transcriptBox.addView(row, boxLp(12));
+
+            TextView cancel = actionTag(R.string.cancel, () -> SpeechService.requestCancel(this), false);
+            LinearLayout.LayoutParams cl = boxLp(14);
+            cl.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+            cl.bottomMargin = dp(16);
+            transcriptBox.addView(cancel, cl);
+            return;
+        }
+
+        if (transcript != null && !transcript.isEmpty()) {
+            HorizontalScrollView scroller = new HorizontalScrollView(this);
+            scroller.setHorizontalScrollBarEnabled(false);
+            LinearLayout actions = new LinearLayout(this);
+            actions.setOrientation(LinearLayout.HORIZONTAL);
+            actions.setPadding(dp(12), dp(12), dp(12), dp(10));
+            actions.addView(actionTag(R.string.copy_all, this::copyTranscript, true), pillLp());
+            actions.addView(actionTag(R.string.share_text, this::shareTranscript, false), pillLp());
+            actions.addView(actionTag(R.string.share_srt, this::shareSrt, false), pillLp());
+            actions.addView(actionTag(R.string.redo, this::startTranscribe, false), pillLp());
+            TextView del = actionTag(R.string.delete, () -> {
+                Repo.deleteTranscript(this, rec.id);
+                transcript = null;
+                refreshTranscript();
+            }, false);
+            del.setTextColor(getColor(R.color.bad));
+            actions.addView(del, pillLp());
+            scroller.addView(actions);
+            transcriptBox.addView(scroller);
+
+            for (int i = 0; i < transcript.segs.size(); i++) {
+                final Transcript.Seg seg = transcript.segs.get(i);
+                transcriptBox.addView(Ui.divider(this, 16));
+                LinearLayout row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setPadding(dp(16), dp(12), dp(16), dp(12));
+                row.setBackgroundResource(R.drawable.bg_row_flat);
+                row.setClickable(true);
+                row.setFocusable(true);
+
+                TextView time = new TextView(this);
+                time.setText(Fmt.duration(seg.startMs));
+                time.setTextSize(12);
+                time.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+                time.setTextColor(c(R.attr.cAccentText));
+                time.setPadding(0, dp(3), 0, 0);
+                LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(dp(54), ViewGroup.LayoutParams.WRAP_CONTENT);
+                row.addView(time, tl);
+
+                TextView text = new TextView(this);
+                text.setText(seg.text);
+                text.setTextSize(16);
+                text.setLineSpacing(0, 1.12f);
+                text.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG);
+                text.setTextColor(c(R.attr.cTextPrimary));
+                row.addView(text, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                segTexts.add(text);
+
+                row.setOnClickListener(v -> seekAndPlay(seg.startMs));
+                row.setOnLongClickListener(v -> {
+                    copyText(seg.text);
+                    return true;
+                });
+                transcriptBox.addView(row);
+            }
+            return;
+        }
+
+        if (transcript != null) {
+            transcriptBox.addView(infoText(R.string.transcript_none), boxLp(16));
+            LinearLayout.LayoutParams lp = boxLp(12);
+            lp.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+            lp.bottomMargin = dp(16);
+            transcriptBox.addView(actionTag(R.string.redo, this::startTranscribe, true), lp);
+            return;
+        }
+
+        boolean ready = Models.anyInstalled(this);
+        transcriptBox.addView(infoText(ready ? R.string.transcript_hint : R.string.transcript_setup_hint), boxLp(16));
+        LinearLayout.LayoutParams lp = boxLp(12);
+        lp.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+        lp.bottomMargin = dp(16);
+        transcriptBox.addView(actionTag(ready ? R.string.transcribe : R.string.speech_setup, this::startTranscribe, true), lp);
+    }
+
+    private void startTranscribe() {
+        if (SpeechService.busy()) {
+            Toast.makeText(this, R.string.speech_busy, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!Models.anyInstalled(this)) {
+            startActivity(new Intent(this, SpeechActivity.class));
+            return;
+        }
+        pausePlayback();
+        SpeechService.startTranscribe(this, rec.id);
+    }
+
+    private void seekAndPlay(long ms) {
+        if (mp == null || !ready) return;
+        mp.seekTo((int) ms);
+        updateProgress();
+        if (!mp.isPlaying()) togglePlayback();
+    }
+
+    private void highlight(long pos) {
+        if (transcript == null || segTexts.isEmpty()) return;
+        int idx = -1;
+        for (int i = 0; i < transcript.segs.size() && i < segTexts.size(); i++) {
+            Transcript.Seg sg = transcript.segs.get(i);
+            if (pos >= sg.startMs && pos < Math.max(sg.endMs, sg.startMs + 300)) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx == highlighted) return;
+        if (highlighted >= 0 && highlighted < segTexts.size()) segTexts.get(highlighted).setTextColor(c(R.attr.cTextPrimary));
+        if (idx >= 0) segTexts.get(idx).setTextColor(c(R.attr.cAccentText));
+        highlighted = idx;
+    }
+
+    private void copyText(String text) {
+        android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (cm != null) {
+            cm.setPrimaryClip(android.content.ClipData.newPlainText(rec.title, text));
+            Toast.makeText(this, R.string.copied, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void copyTranscript() {
+        if (transcript != null) copyText(transcript.fullText());
+    }
+
+    private void shareTranscript() {
+        if (transcript == null) return;
+        Intent i = new Intent(Intent.ACTION_SEND);
+        i.setType("text/plain");
+        i.putExtra(Intent.EXTRA_SUBJECT, rec.title);
+        i.putExtra(Intent.EXTRA_TEXT, transcript.fullText());
+        startActivity(Intent.createChooser(i, getString(R.string.share_text)));
+    }
+
+    private void shareSrt() {
+        if (transcript == null) return;
+        try {
+            File dir = new File(getCacheDir(), "subtitles");
+            dir.mkdirs();
+            String safe = rec.title.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+            if (safe.isEmpty()) safe = rec.id;
+            File f = new File(dir, safe + ".srt");
+            try (FileOutputStream out = new FileOutputStream(f)) {
+                out.write(transcript.toSrt().getBytes(StandardCharsets.UTF_8));
+            }
+            android.net.Uri u = androidx.core.content.FileProvider.getUriForFile(this, getPackageName() + ".files", f);
+            Intent i = new Intent(Intent.ACTION_SEND);
+            i.setType("application/x-subrip");
+            i.putExtra(Intent.EXTRA_STREAM, u);
+            i.setClipData(android.content.ClipData.newRawUri(rec.title, u));
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(i, getString(R.string.share_srt)));
+        } catch (IOException e) {
+            Toast.makeText(this, R.string.save_failed, Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void addMarker() {
@@ -600,6 +910,7 @@ public final class PlayerActivity extends AppCompatActivity {
         int pos = mp.getCurrentPosition();
         if (durationMs > 0) wave.setProgress((float) pos / durationMs);
         updateTimes(pos);
+        highlight(pos);
     }
 
     private void updateTimes(long pos) {

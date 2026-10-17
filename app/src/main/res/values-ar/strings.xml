@@ -177,4 +177,74 @@
         <item>+6 dB</item>
         <item>+9 dB</item>
     </string-array>
+
+    <string name="group_speech">تحويل الكلام إلى نص</string>
+    <string name="settings_engine">محرك الكلام</string>
+    <string name="engine_none">غير مُعدّ</string>
+    <string name="settings_clean">تنقية الصوت أولًا</string>
+    <string name="settings_clean_level">قوة التنقية</string>
+    <string name="settings_auto_transcribe">تفريغ نصي بعد التسجيل</string>
+    <string name="footer_speech">التنقية تقلل ضجيج الخلفية قبل التعرّف على الكلام فتزيد الدقة. كل شيء يعمل على هذا الهاتف.</string>
+    <string-array name="clean_levels">
+        <item>خفيفة</item>
+        <item>متوسطة</item>
+        <item>قوية</item>
+    </string-array>
+
+    <string name="speech_title">محرك الكلام</string>
+    <string name="speech_intro_title">تحويل الكلام إلى نص بدون إنترنت</string>
+    <string name="speech_intro">نزّل نموذج كلام واحدًا مرة واحدة، ثم حوّل تسجيلاتك إلى نص بدون اتصال بالإنترنت. المحرك هو Vosk، محرك تعرّف مجاني ومفتوح المصدر يعمل بالكامل على هذا الهاتف، ولا يغادر صوتك الجهاز أبدًا.</string>
+    <string name="speech_models">النماذج</string>
+    <string name="speech_active">قيد الاستخدام</string>
+    <string name="speech_size_fmt">حوالي %1$d ميغابايت</string>
+    <string name="speech_heavy">يحتاج هاتفًا حديثًا بذاكرة 4 غيغابايت أو أكثر</string>
+    <string name="speech_installing">جارٍ التثبيت…</string>
+    <string name="speech_use">استخدام هذا النموذج</string>
+    <string name="speech_download">تنزيل</string>
+    <string name="speech_resume_fmt">متابعة (تم %1$s)</string>
+    <string name="speech_delete_title">حذف هذا النموذج؟</string>
+    <string name="speech_delete_message">يمكنك تنزيله مرة أخرى لاحقًا. النصوص المفرَّغة سابقًا تبقى محفوظة.</string>
+    <string name="speech_busy">هناك مهمة أخرى قيد التنفيذ، انتظر قليلًا</string>
+    <string name="speech_download_title">تنزيل نموذج الكلام</string>
+    <string name="speech_download_message">سيتم تنزيل حوالي %1$d ميغابايت مرة واحدة. هذه هي المرة الوحيدة التي يحتاج فيها التطبيق إلى الإنترنت، وبعدها يعمل كل شيء بدونه. يُفضّل استخدام الواي فاي.</string>
+    <string name="speech_ready">محرك الكلام جاهز</string>
+    <string name="speech_footer">النماذج من مجموعة نماذج Vosk المجانية. إن انقطع التنزيل يُكمل من حيث توقف.</string>
+    <string name="speech_setup">إعداد محرك الكلام</string>
+
+    <string name="err_download">فشل التنزيل. تحقق من الاتصال وحاول مرة أخرى؛ التقدم محفوظ.</string>
+    <string name="err_engine">تعذّر تشغيل محرك الكلام على هذا الجهاز. جرّب نموذجًا أصغر.</string>
+    <string name="err_generic">حدث خطأ ما</string>
+    <string name="job_download">جارٍ تنزيل نموذج الكلام</string>
+    <string name="job_transcribe">جارٍ التفريغ النصي</string>
+    <string name="job_enhance">جارٍ تنقية الصوت</string>
+    <string name="notif_speech_channel">تحويل الكلام إلى نص</string>
+    <string name="notif_done_download">محرك الكلام جاهز</string>
+    <string name="notif_done_transcribe">النص جاهز</string>
+    <string name="notif_done_enhance">تم حفظ النسخة النقية</string>
+    <string name="clean_copy">إنشاء نسخة صوت نقية</string>
+    <string name="clean_copy_title">%1$s (نقي)</string>
+
+    <string name="transcript_title">النص</string>
+    <string name="transcript_hint">حوّل هذا التسجيل إلى نص على هاتفك بدون إنترنت.</string>
+    <string name="transcript_setup_hint">نزّل نموذج كلام مرة واحدة لتحويل التسجيلات إلى نص بدون إنترنت.</string>
+    <string name="transcript_none">لم يُكتشف كلام في هذا التسجيل.</string>
+    <string name="transcribe">تحويل إلى نص</string>
+    <string name="copy_all">نسخ الكل</string>
+    <string name="share_text">مشاركة النص</string>
+    <string name="share_srt">ترجمة (.srt)</string>
+    <string name="redo">إعادة</string>
+    <string name="copied">تم النسخ</string>
+    <string name="has_transcript">نص مفرَّغ</string>
+
+    <string-array name="speech_model_names">
+        <item>عربي · فصحى (كبير)</item>
+        <item>عربي · تونسي (صغير)</item>
+        <item>إنجليزي · صغير</item>
+        <item>إنجليزي · كبير</item>
+        <item>فرنسي · صغير</item>
+        <item>إسباني · صغير</item>
+        <item>ألماني · صغير</item>
+        <item>تركي · صغير</item>
+        <item>روسي · صغير</item>
+    </string-array>
 </resources>

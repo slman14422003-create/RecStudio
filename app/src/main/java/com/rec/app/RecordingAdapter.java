@@ -216,6 +216,7 @@ public final class RecordingAdapter extends RecyclerView.Adapter<RecordingAdapte
             String[] modes = ctx.getResources().getStringArray(R.array.mode_options);
             if (r.mode < modes.length) sb.append("  \u00B7  ").append(modes[r.mode]);
         }
+        if (!trashMode && Repo.hasTranscript(ctx, r.id)) sb.append("  \u00B7  ").append(ctx.getString(R.string.has_transcript));
         if (!r.markers.isEmpty()) sb.append("  \u00B7  ").append(ctx.getResources().getString(R.string.markers_short, r.markers.size()));
         h.meta.setText(sb);
         h.wave.setPeaks(r.peaksAsFloat());

@@ -634,6 +634,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void reload() {
+        transcriptCache.clear();
         all = Repo.all(this);
         applyFilter();
     }
@@ -645,7 +646,7 @@ public final class MainActivity extends AppCompatActivity {
             if (filter == FILTER_STARRED && !r.favorite) continue;
             if (filter == FILTER_MARKED && r.markers.isEmpty()) continue;
             if (filter >= FILTER_LABEL_BASE && r.label != filter - FILTER_LABEL_BASE + 1) continue;
-            if (!query.isEmpty() && !r.title.toLowerCase(Locale.getDefault()).contains(query)) continue;
+            if (!query.isEmpty() && !r.title.toLowerCase(Locale.getDefault()).contains(query) && !transcriptMatches(r, query)) continue;
             out.add(r);
             total += r.durationMs;
         }
@@ -664,6 +665,19 @@ public final class MainActivity extends AppCompatActivity {
         rv.setVisibility(none ? View.INVISIBLE : View.VISIBLE);
         emptyText.setText(all.isEmpty() ? R.string.empty_library : R.string.empty_filtered);
         summary.setText(getString(R.string.summary_fmt, out.size(), Fmt.duration(total)));
+    }
+
+    private final java.util.Map<String, String> transcriptCache = new java.util.HashMap<>();
+
+    private boolean transcriptMatches(Recording r, String q) {
+        if (q.length() < 2 || !Repo.hasTranscript(this, r.id)) return false;
+        String text = transcriptCache.get(r.id);
+        if (text == null) {
+            Transcript t = Repo.loadTranscript(this, r.id);
+            text = t == null ? "" : t.fullText().toLowerCase(Locale.getDefault());
+            transcriptCache.put(r.id, text);
+        }
+        return text.contains(q);
     }
 
     private void chooseSort() {

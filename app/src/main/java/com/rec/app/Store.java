@@ -32,6 +32,10 @@ public final class Store {
     private static final String K_AGC = "auto_gain";
     private static final String K_LOWCUT = "low_cut";
     private static final String K_GAIN = "mic_gain";
+    private static final String K_SPEECH_MODEL = "speech_model";
+    private static final String K_CLEAN = "speech_clean";
+    private static final String K_CLEAN_LEVEL = "speech_clean_level";
+    private static final String K_AUTO_TR = "speech_auto";
 
     private final SharedPreferences prefs;
 
@@ -104,4 +108,16 @@ public final class Store {
         int[] db = {0, 3, 6, 9};
         return db[Math.max(0, Math.min(db.length - 1, index))];
     }
+
+    public int getSpeechModel() { return prefs.getInt(K_SPEECH_MODEL, -1); }
+    public void setSpeechModel(int i) { prefs.edit().putInt(K_SPEECH_MODEL, i).apply(); }
+
+    public boolean getClean() { return prefs.getBoolean(K_CLEAN, true); }
+    public void setClean(boolean b) { prefs.edit().putBoolean(K_CLEAN, b).apply(); }
+
+    public int getCleanLevel() { return prefs.getInt(K_CLEAN_LEVEL, 1); }
+    public void setCleanLevel(int i) { prefs.edit().putInt(K_CLEAN_LEVEL, i).apply(); }
+
+    public boolean getAutoTranscribe() { return prefs.getBoolean(K_AUTO_TR, false); }
+    public void setAutoTranscribe(boolean b) { prefs.edit().putBoolean(K_AUTO_TR, b).apply(); }
 }

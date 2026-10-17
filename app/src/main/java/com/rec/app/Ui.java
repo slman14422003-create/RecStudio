@@ -326,4 +326,13 @@ public final class Ui {
         l.addView(t, tlp);
         return l;
     }
+
+    public static android.widget.ProgressBar progressBar(Context c) {
+        android.widget.ProgressBar pb = new android.widget.ProgressBar(c, null, android.R.attr.progressBarStyleHorizontal);
+        pb.setMax(100);
+        pb.setProgressTintList(ColorStateList.valueOf(attrColor(c, R.attr.cAccent)));
+        pb.setProgressBackgroundTintList(ColorStateList.valueOf(attrColor(c, R.attr.cField)));
+        pb.setIndeterminateTintList(ColorStateList.valueOf(attrColor(c, R.attr.cAccent)));
+        return pb;
+    }
 }

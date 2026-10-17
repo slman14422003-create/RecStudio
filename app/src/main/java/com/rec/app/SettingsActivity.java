@@ -1,5 +1,6 @@
 package com.rec.app;
 
+import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -23,6 +24,7 @@ public final class SettingsActivity extends AppCompatActivity {
     private static final int DIVIDER_INSET_DP = 60;
 
     private Store store;
+    private TextView engineValue;
 
     private interface IntGetter { int get(); }
     private interface IntSetter { void set(int i); }
@@ -76,6 +78,14 @@ public final class SettingsActivity extends AppCompatActivity {
         addRow(ga, choiceRow(R.drawable.ic_set_gain, R.color.warn, R.string.settings_gain, gains, () -> store.getGainIndex(), i -> store.setGainIndex(i)));
         footer(list, R.string.footer_audio);
 
+        LinearLayout gs = group(list, R.string.group_speech);
+        addRow(gs, linkRow(R.drawable.ic_set_speech, R.color.ok, R.string.settings_engine, () -> startActivity(new Intent(this, SpeechActivity.class))));
+        addRow(gs, toggleRow(R.drawable.ic_set_clean, R.color.teal, R.string.settings_clean, store.getClean(), checked -> store.setClean(checked)));
+        final String[] levels = getResources().getStringArray(R.array.clean_levels);
+        addRow(gs, choiceRow(R.drawable.ic_set_denoise, R.color.indigo, R.string.settings_clean_level, levels, () -> store.getCleanLevel(), i -> store.setCleanLevel(i)));
+        addRow(gs, toggleRow(R.drawable.ic_set_text, R.color.info, R.string.settings_auto_transcribe, store.getAutoTranscribe(), checked -> store.setAutoTranscribe(checked)));
+        footer(list, R.string.footer_speech);
+
         LinearLayout g2 = group(list, R.string.group_playback);
         final int[] skipVals = {5, 10, 15, 30};
         final String[] skipOpts = new String[skipVals.length];
@@ -115,6 +125,44 @@ public final class SettingsActivity extends AppCompatActivity {
     private void addRow(LinearLayout group, View row) {
         if (group.getChildCount() > 0) group.addView(Ui.divider(this, DIVIDER_INSET_DP));
         group.addView(row);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (engineValue != null) engineValue.setText(engineName());
+    }
+
+    private String engineName() {
+        int idx = Models.currentIndex(this, store);
+        if (idx < 0) return getString(R.string.engine_none);
+        return getResources().getStringArray(R.array.speech_model_names)[idx];
+    }
+
+    private LinearLayout linkRow(int iconRes, int colorRes, int labelRes, Runnable action) {
+        LinearLayout row = baseRow(iconRes, colorRes, labelRes);
+        engineValue = new TextView(this);
+        engineValue.setTextSize(15);
+        engineValue.setSingleLine(true);
+        engineValue.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        engineValue.setMaxWidth(Ui.dp(this, 170));
+        engineValue.setTextColor(Ui.attrColor(this, R.attr.cTextSecondary));
+        engineValue.setText(engineName());
+        row.addView(engineValue);
+
+        ImageView chev = new ImageView(this);
+        chev.setImageResource(R.drawable.ic_chevron_end);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(Ui.dp(this, 20), Ui.dp(this, 20));
+        clp.setMarginStart(Ui.dp(this, 4));
+        chev.setLayoutParams(clp);
+        chev.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        row.addView(chev);
+
+        row.setBackgroundResource(R.drawable.bg_row_flat);
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setOnClickListener(v -> action.run());
+        return row;
     }
 
     private int currentLang() {
